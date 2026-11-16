@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ISP Barendrecht — Tab 3: Ochtendoverleg 07:00</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Centraal Stylesheet: bewerk style.css om styling aan te passen -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="min-h-full text-slate-800 flex flex-col">
+<!-- TOP NAVIGATION BAR (VOLLEDIG IDENTIEK: LOGO, MENU, ZOEKVAK & ACTIES) -->
+  <header class="bg-[#0a2246] text-white border-b border-[#163a70] sticky top-0 z-40 shadow-md no-print w-full mb-6">
+    <div class="max-w-[1600px] mx-auto px-3 sm:px-6 py-2.5">
+      <div class="flex items-center justify-between gap-2 sm:gap-4 w-full min-w-0">
+
+        <!-- Brand / Origineel ISP Logo -->
+        <a
+          href="index.html"
+          id="brandHomeBtn"
+          class="isp-brand-capsule group focus:outline-none shrink-0"
+          title="Ga naar Projecten Zoeken &amp; Startscherm"
+        >
+          <img
+            src="isp-logo-original.png"
+            alt="ISP — Industrial Solution Partner"
+            class="h-8 sm:h-9 w-auto object-contain"
+          />
+          <div class="border-l border-slate-200 pl-2.5 sm:pl-3 py-0.5 text-left hidden sm:block">
+            <div class="font-extrabold text-xs sm:text-sm tracking-tight text-[#0a2246] group-hover:text-blue-700 transition whitespace-nowrap">
+              ISP Barendrecht
+            </div>
+            <p class="text-[10px] text-slate-500 font-semibold whitespace-nowrap leading-tight">Project Insights &amp; Nacalculatie</p>
+          </div>
+        </a>
+
+        <!-- CENTRAAL NAVIGATIEMENU -->
+        <nav class="hidden lg:inline-flex isp-nav-menu-bar shrink-0" aria-label="Hoofdnavigatie">
+          <a
+            href="index.html"
+            id="tabHomeBtn"
+            class="isp-nav-tab"
+            title="Overzicht en zoeken van projecten"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            <span>Projecten</span>
+          </a>
+
+          <a
+            href="dashboard.html"
+            id="tabDashboardBtn"
+            class="isp-nav-tab"
+            title="Voorcalculatie vs. nacalculatie en projectdetails"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+            </svg>
+            <span>Status</span>
+            <span id="navCurrentProjectBadge" class="px-1.5 py-0.5 text-[10px] font-mono-num font-bold rounded bg-[#12356b] text-blue-200 border border-blue-400/30">200490</span>
+          </a>
+
+          <a
+            href="ochtendoverleg.html"
+            id="tabMorningBtn"
+            class="isp-nav-tab active"
+            title="Knelpuntenoverzicht voor het overleg"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span>Overleg</span>
+            <span id="morningAlertCountBadge" class="px-1.5 py-0.5 text-[10px] font-mono-num font-extrabold rounded-full bg-rose-600 text-white">0</span>
+          </a>
+        </nav>
+
+        <!-- RECHTERZIJDE: DESKTOP ACTIES (ZOEKEN, KLANTMODUS, PRINT, ACTIES) -->
+        <div class="hidden lg:flex items-center gap-1.5 xl:gap-2 shrink-0">
+          <!-- Snelzoeken -->
+          <div class="relative w-36 xl:w-44 2xl:w-52">
+            <svg class="w-3.5 h-3.5 text-blue-200 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            <input
+              id="projectSearchInput"
+              type="text"
+              placeholder="Zoek project..."
+              class="w-full pl-7 pr-6 py-1.5 bg-[#12356b] border border-[#2b5fb3] rounded-lg text-xs text-white placeholder-blue-200/80 focus:outline-none focus:ring-2 focus:ring-white font-medium"
+              autocomplete="off"
+            />
+            <button
+              id="clearSearchBtn"
+              type="button"
+              title="Zoekopdracht wissen"
+              class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-blue-200 hover:text-white text-xs"
+            >
+              &times;
+            </button>
+            <div id="searchSuggestions" class="hidden absolute left-0 right-0 mt-1.5 bg-[#0a2246] border border-[#2b5fb3] rounded-xl shadow-2xl max-h-80 overflow-y-auto z-50 divide-y divide-[#163a70]"></div>
+          </div>
+
+          <!-- Project Keuzelijst Dropdown (verborgen zodat JavaScript niet faalt) -->
+          <select id="projectSelector" class="hidden" aria-hidden="true"></select>
+
+          <!-- Klantweergave Toggle -->
+          <label class="inline-flex items-center cursor-pointer select-none bg-[#12356b] hover:bg-[#1b4585] px-2 py-1.5 rounded-lg border border-[#2b5fb3] transition" title="Verberg interne marges en exacte kosten voor klantrapportage">
+            <input type="checkbox" id="clientViewToggle" class="sr-only peer" />
+            <div class="w-6 h-3.5 bg-[#1e4278] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-2.5 after:w-2.5 after:transition-all relative peer-checked:bg-emerald-500"></div>
+            <span class="ml-1.5 text-[11px] font-semibold text-blue-100 peer-checked:text-white whitespace-nowrap">
+              Klantmodus
+            </span>
+          </label>
+
+          <!-- Snelle A4 PDF Printknop -->
+          <button
+            id="exportReportBtn"
+            type="button"
+            class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-extrabold bg-white hover:bg-blue-50 text-[#0a2246] shadow-xs transition cursor-pointer whitespace-nowrap"
+            title="A4 Rapport afdrukken of opslaan als PDF"
+          >
+            <svg class="w-3.5 h-3.5 text-[#0a2246]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+            </svg>
+            <span class="hidden 2xl:inline">Afdrukken</span>
+          </button>
+
+          <!-- BEHEER & ACTIES DROPDOWN MENU -->
+          <div class="relative">
+            <button
+              id="actionsMenuBtn"
+              type="button"
+              class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-[#12356b] hover:bg-[#1b4585] text-white border border-[#2b5fb3] transition cursor-pointer whitespace-nowrap"
+              title="Beheeropties, import, export en instellingen"
+              aria-haspopup="true"
+            >
+              <svg class="w-3.5 h-3.5 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
+              </svg>
+              <span>Acties</span>
+              <svg class="w-3 h-3 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+              </svg>
+            </button>
+
+            <!-- Dropdown Menu Content -->
+            <div id="actionsMenuDropdown" class="hidden isp-dropdown-menu absolute right-0 mt-2 py-1.5">
+              <div class="px-4 py-2 border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                Projectbeheer &amp; Data
+              </div>
+
+              <button id="addNewProjectBtn" type="button" class="isp-dropdown-item">
+                <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                <span>Nieuw Project Toevoegen</span>
+              </button>
+
+              <button id="openImportModalBtn" type="button" class="isp-dropdown-item">
+                <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                </svg>
+                <span>Data Importeren (Excel / CSV)</span>
+              </button>
+
+              <button id="exportCsvBtn" type="button" class="isp-dropdown-item">
+                <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                <span>Exporteer CSV (Nacalculatie)</span>
+              </button>
+
+              <div class="my-1 border-t border-slate-100"></div>
+              <div class="px-4 py-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                Configuratie &amp; Systeem
+              </div>
+
+              <button id="editGlobalRateBtn" type="button" class="isp-dropdown-item">
+                <svg class="w-4 h-4 text-[#0a2246]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <div class="flex-1 flex items-center justify-between">
+                  <span>Standaard Tarief</span>
+                  <span id="globalRateDisplay" class="font-mono-num font-extrabold text-[#0a2246] bg-slate-100 px-2 py-0.5 rounded text-[11px]">€ 65,00</span>
+                </div>
+              </button>
+
+              <button id="openSettingsModalBtn" type="button" class="isp-dropdown-item">
+                <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+                <div class="flex-1 flex items-center justify-between">
+                  <span>Instellingen (API)</span>
+                  <span id="apiStatusDot" class="w-2.5 h-2.5 rounded-full bg-amber-400" title="Demo-modus actief"></span>
+                </div>
+              </button>
+
+              <button id="resetDemoDataBtn" type="button" class="isp-dropdown-item text-slate-500 hover:text-rose-700">
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                <span>Herstel Demodata (490 prj)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </header>
+  <!-- ===================================================================== -->
+  <!-- TAB 3: OCHTENDOVERLEG 07:00 (MORNING STANDUP FILTERED VIEW)           -->
+  <!-- Gefilterd overzicht van projecten met acute knelpunten en vertragingen. -->
+  <!-- Wordt centraal aangestuurd door ochtendoverleg.js en style.css.        -->
+  <!-- ===================================================================== -->
+  <section id="viewMorningMeeting" class="space-y-6 max-w-[1600px] mx-auto">
+
+    <!-- Morning Banner -->
+    <div class="bg-[#0a2246] text-white rounded-2xl p-5 border border-[#163a70] shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div>
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-extrabold bg-white text-[#0a2246] uppercase tracking-wider mb-2">
+          <svg class="w-4 h-4 text-[#0a2246]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <span>Dagstart Werkplaats &amp; Projectleiding — 07:00 Uur</span>
+        </div>
+        <h2 class="text-xl sm:text-2xl font-extrabold tracking-tight">
+          Overzicht Acute Knelpunten &amp; Risicoprojecten
+        </h2>
+        <p class="text-xs sm:text-sm text-blue-100 mt-1">
+          Gefilterde lijst van alle ISP-projecten met status <strong>Oranje (Risico)</strong>, <strong>Rood (Kritieke Overschrijding)</strong> of <strong>Leveranciersvertraging</strong>.
+        </p>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-3 no-print">
+        <label class="inline-flex items-center gap-2.5 text-xs font-semibold bg-[#12356b] px-4 py-2.5 rounded-xl border border-[#2b5fb3] cursor-pointer">
+          <input id="morningOnlyActiveToggle" type="checkbox" class="rounded text-blue-600 focus:ring-white w-4 h-4" />
+          <span>Toon alleen [Lopende] projecten</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Summary Counters for Morning Meeting -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div class="bg-white p-5 rounded-2xl border border-[#dbe4f0] shadow-xs flex items-center justify-between">
+        <div>
+          <span class="text-xs font-extrabold uppercase text-[#0a2246]">Kritieke Overschrijding (Rood)</span>
+          <div id="morningCountRed" class="text-3xl font-extrabold font-mono-num text-rose-600 mt-1">0</div>
+          <span class="text-xs text-slate-500">≥ 10% over uren of budget</span>
+        </div>
+        <span class="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center font-extrabold text-xl">!</span>
+      </div>
+
+      <div class="bg-white p-5 rounded-2xl border border-[#dbe4f0] shadow-xs flex items-center justify-between">
+        <div>
+          <span class="text-xs font-extrabold uppercase text-[#0a2246]">Risico / Urenuitloop (Oranje)</span>
+          <div id="morningCountOrange" class="text-3xl font-extrabold font-mono-num text-amber-600 mt-1">0</div>
+          <span class="text-xs text-slate-500">&lt; 10% uitloop of vertraagd onderdeel</span>
+        </div>
+        <span class="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center font-extrabold text-xl">
+          <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+        </span>
+      </div>
+
+      <div class="bg-white p-5 rounded-2xl border border-[#dbe4f0] shadow-xs flex items-center justify-between">
+        <div>
+          <span class="text-xs font-extrabold uppercase text-[#0a2246]">Toeleveranciersvertragingen</span>
+          <div id="morningCountSupplier" class="text-3xl font-extrabold font-mono-num text-[#0a2246] mt-1">0</div>
+          <span class="text-xs text-slate-500">Wacht op externe levering</span>
+        </div>
+        <span class="w-12 h-12 rounded-2xl bg-[#eef3f9] text-[#0a2246] flex items-center justify-center font-extrabold text-xl">
+          <svg class="w-6 h-6 text-[#0a2246]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </span>
+      </div>
+    </div>
+
+    <!-- Morning Bottleneck Cards List -->
+<!-- Snel-invoer Paneel voor Ochtendoverleg -->
+    <div class="bg-white p-5 rounded-2xl border border-[#dbe4f0] shadow-sm mb-6 mt-6 no-print">
+      <h3 class="text-sm font-extrabold uppercase tracking-wider text-[#0a2246] mb-4">Snel Knelpunt of Vertraging Melden</h3>
+      <form id="quickEntryForm" class="flex flex-col gap-4">
+        
+        <!-- Rij 1: Project en Status -->
+        <div class="flex flex-col md:flex-row gap-4">
+          <div class="flex-1">
+            <label class="block text-xs font-bold text-slate-700 mb-1">Project (Naam of Nummer)</label>
+            <input type="text" id="qeProject" placeholder="Bijv. 1024 • Klant X" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0a2246]">
+          </div>
+          <div class="flex-1">
+            <label class="block text-xs font-bold text-slate-700 mb-1">Type Knelpunt</label>
+            <select id="qeStatus" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0a2246] bg-white">
+              <option value="">-- Kies een status --</option>
+              <option value="rood">Kritieke Overschrijding (Rood)</option>
+              <option value="oranje">Risico / Urenuitloop (Oranje)</option>
+              <option value="leverancier">Toeleveranciersvertraging</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Rij 2: Uren/Vertraging en Toelichting -->
+        <div class="flex flex-col md:flex-row gap-4">
+          <div class="w-full md:w-1/3">
+            <label class="block text-xs font-bold text-slate-700 mb-1">Omvang (Uren of Dagen)</label>
+            <input type="text" id="qeOmvang" placeholder="Bijv. 12 uur of 3 dagen" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0a2246]">
+          </div>
+          <div class="w-full md:w-2/3">
+            <label class="block text-xs font-bold text-slate-700 mb-1">Toelichting / Oorzaak</label>
+            <input type="text" id="qeToelichting" placeholder="Wat is er aan de hand waardoor de planning verandert?" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0a2246]">
+          </div>
+        </div>
+
+        <!-- Rij 3: Opslaan Knop -->
+        <div class="flex justify-end mt-2">
+          <button type="button" class="bg-[#0a2246] hover:bg-[#12356b] text-white text-xs font-bold py-2.5 px-5 rounded-lg transition-colors shadow-sm cursor-pointer">
+            + Opslaan voor Ochtendoverleg
+          </button>
+        </div>
+      </form>
+    </div>
+    <div id="morningCardsContainer" class="space-y-4"></div>
+
+    <!-- All Projects Summary Table -->
+    <div class="bg-white rounded-2xl shadow-xs border border-[#dbe4f0] overflow-hidden">
+      <div class="bg-[#0a2246] text-white px-5 py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <h3 class="text-sm font-extrabold uppercase tracking-wider text-white">Overzicht Projecten</h3>
+          <span id="totalProjectsCountLabel" class="text-xs font-mono-num text-blue-200"></span>
+        </div>
+
+        <!-- Filterknoppen: Schakelen tussen Lopend, Afgerond en Alles -->
+        <div class="inline-flex items-center p-1 rounded-xl bg-[#071936] border border-[#163a70] no-print">
+          <button
+            id="morningFilterActive"
+            type="button"
+            class="px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer bg-white text-[#0a2246] shadow-xs"
+          >
+            Lopend
+          </button>
+          <button
+            id="morningFilterCompleted"
+            type="button"
+            class="px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer text-blue-200 hover:text-white"
+          >
+            Afgerond
+          </button>
+          <button
+            id="morningFilterAll"
+            type="button"
+            class="px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer text-blue-200 hover:text-white"
+          >
+            Alles
+          </button>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-[#eef3f9] border-b border-[#dbe4f0] text-xs font-extrabold uppercase tracking-wider text-[#0a2246]">
+              <th class="py-3.5 px-4">ISP Projectbenaming (Nummer • Klant • Omschrijving)</th>
+              <th class="py-3.5 px-4">Fase</th>
+              <th class="py-3.5 px-4">Status</th>
+              <th class="py-3.5 px-4 text-right">Uren (Werk. / Begr.)</th>
+              <th class="py-3.5 px-4 text-right internal-cost-field">Resultaat Budget (€)</th>
+              <th class="py-3.5 px-4 text-right">Afwijking (%)</th>
+              <th class="py-3.5 px-4">Bestelstatus</th>
+              <th class="py-3.5 px-4 text-right no-print">Actie</th>
+            </tr>
+          </thead>
+          <tbody id="allProjectsTableBody" class="divide-y divide-slate-200 text-xs sm:text-sm"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </section>
+<script src="app.js"></script>
+<script src="ochtendoverleg.js"></script>
+</body>
+</html>

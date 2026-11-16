@@ -1,0 +1,465 @@
+/* ==========================================================================
+   ISP BARENDRECHT — CENTRAAL STYLESHEET (style.css)
+   Project Insights & Realtime Nacalculatie Dashboard
+   Geschikt voor groepsproject: alle kleuren, opmaak en stijlen op één plek.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. CSS VARIABELEN (ISP HUISSTIJL: DONKERBLAUW & WIT)
+   Pas hier de kleuren aan om direct invloed te hebben op ALLE tabbladen!
+   -------------------------------------------------------------------------- */
+:root {
+  /* Primaire ISP Huisstijlkleuren */
+  --isp-navy: #0a2246;         /* ISP Donkerblauw hoofdkleur */
+  --isp-navy-dark: #071936;    /* Extra donkerblauw */
+  --isp-blue-mid: #12356b;     /* Blauw middenkleur */
+  --isp-blue-sub: #102c59;     /* Subnavigatie balk */
+  --isp-blue-border: #1d4480;  /* Randkleur donkerblauwe elementen */
+  --isp-blue-accent: #2b5fb3;  /* Accent blauw */
+
+  /* Neutrale tinten */
+  --isp-bg: #f4f7fb;           /* Zeer lichte achtergrond */
+  --isp-bg-alt: #eef3f9;       /* Lichte tussenkleur */
+  --isp-card-bg: #ffffff;      /* Witte cards */
+  --isp-border: #dbe4f0;       /* Randkleur kaarten en tabellen */
+  --isp-border-focus: #0a2246; /* Focusrand */
+  --isp-text-main: #1e293b;    /* Slate-800 hoofdtekst */
+  --isp-text-muted: #64748b;   /* Slate-500 secundair */
+
+  /* Stoplicht Statuskleuren (Voorcalculatie vs. Nacalculatie) */
+  --isp-green: #10b981;        /* Binnen Budget (Groen) */
+  --isp-green-bg: #ecfdf5;     /* Lichtgroene achtergrond */
+  --isp-green-border: #a7f3d0; /* Lichtgroene rand */
+  --isp-green-text: #065f46;   /* Donkergroene tekst */
+
+  --isp-amber: #f59e0b;        /* Risico / Uitloop (Oranje) */
+  --isp-amber-bg: #fffbeb;     /* Lichtoranje achtergrond */
+  --isp-amber-border: #fde68a; /* Lichtoranje rand */
+  --isp-amber-text: #92400e;   /* Donkeroranje tekst */
+
+  --isp-red: #e11d48;          /* Kritieke Overschrijding (Rood) */
+  --isp-red-bg: #fff1f2;       /* Lichtrode achtergrond */
+  --isp-red-border: #fecdd3;   /* Lichtrode rand */
+  --isp-red-text: #9f1239;     /* Donkerrode tekst */
+
+  /* Typografie & Afrondingen */
+  --isp-radius-sm: 8px;
+  --isp-radius-md: 12px;
+  --isp-radius-lg: 16px;
+  --isp-font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --isp-font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+/* --------------------------------------------------------------------------
+   2. BASIS- & TYPOGRAFIE STIJLEN
+   -------------------------------------------------------------------------- */
+html, body {
+  max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+*, *::before, *::after {
+  box-sizing: inherit;
+}
+
+body {
+  font-family: var(--isp-font-sans);
+  background-color: var(--isp-bg);
+  color: var(--isp-text-main);
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-mono-num {
+  font-family: var(--isp-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Custom Scrollbar in ISP Blauw/Wit stijl */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--isp-bg-alt);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--isp-blue-mid);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--isp-navy);
+}
+
+/* --------------------------------------------------------------------------
+   3. CENTRALE KOP- & NAVIGATIEBALK STYLING (RUSTIG & DUIDELIJK)
+   -------------------------------------------------------------------------- */
+.isp-header {
+  background-color: var(--isp-navy);
+  color: #ffffff;
+  border-bottom: 1px solid #163a70;
+  width: 100%;
+  max-width: 100vw;
+}
+
+/* Originele ISP Brand Capsule in de menubalk */
+.isp-brand-capsule {
+  background-color: #ffffff;
+  border: 2px solid #163a70;
+  border-radius: var(--isp-radius-md);
+  padding: 4px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+  transition: all 0.15s ease-in-out;
+  cursor: pointer;
+  text-decoration: none;
+}
+.isp-brand-capsule:hover {
+  border-color: #2b5fb3;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
+}
+
+.isp-nav-menu-bar {
+  background-color: #071936;
+  border: 1px solid #163a70;
+  border-radius: var(--isp-radius-md);
+  padding: 3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.isp-nav-tab {
+  padding: 5px 10px;
+  border-radius: var(--isp-radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  color: #dbeafe;
+  transition: all 0.15s ease-in-out;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  white-space: nowrap;
+}
+.isp-nav-tab:hover {
+  background-color: #12356b;
+  color: #ffffff;
+}
+.isp-nav-tab.active {
+  background-color: #ffffff;
+  color: var(--isp-navy);
+  font-weight: 800;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* In- en uitklapbaar mobiel / tablet navigatiemenu */
+.isp-mobile-drawer {
+  background-color: #071936;
+  border-bottom: 2px solid #163a70;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+}
+
+.isp-mobile-tab-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 14px;
+  border-radius: var(--isp-radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  color: #dbeafe;
+  background-color: #0d264e;
+  border: 1px solid #1a417c;
+  transition: all 0.15s ease-in-out;
+  cursor: pointer;
+  text-align: left;
+}
+.isp-mobile-tab-btn:hover {
+  background-color: #163e79;
+  color: #ffffff;
+  border-color: #2b5fb3;
+}
+.isp-mobile-tab-btn.active {
+  background-color: #ffffff;
+  color: var(--isp-navy);
+  font-weight: 800;
+  border-color: #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+/* Acties & Beheer Dropdown Menu */
+.isp-dropdown-menu {
+  background-color: #ffffff;
+  color: var(--isp-navy);
+  border: 1px solid var(--isp-border);
+  border-radius: var(--isp-radius-md);
+  box-shadow: 0 10px 25px -5px rgba(10, 34, 70, 0.15), 0 8px 10px -6px rgba(10, 34, 70, 0.1);
+  min-width: 240px;
+  overflow: hidden;
+  z-index: 50;
+}
+
+.isp-dropdown-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--isp-text-main);
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+.isp-dropdown-item:hover {
+  background-color: var(--isp-bg-alt);
+  color: var(--isp-navy);
+}
+
+/* Status dots (geen emoji's) */
+.isp-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.isp-dot-green { background-color: var(--isp-green); }
+.isp-dot-amber { background-color: var(--isp-amber); }
+.isp-dot-red { background-color: var(--isp-red); }
+
+/* --------------------------------------------------------------------------
+   4. CARDS & CONTAINERS (OP ALLE TABBLADEN)
+   -------------------------------------------------------------------------- */
+.isp-card {
+  background-color: var(--isp-card-bg);
+  border: 1px solid var(--isp-border);
+  border-radius: var(--isp-radius-lg);
+  box-shadow: 0 1px 3px rgba(10, 34, 70, 0.04);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.isp-card:hover {
+  border-color: #cbd5e1;
+}
+
+.isp-hero-banner {
+  background: linear-gradient(135deg, var(--isp-navy) 0%, var(--isp-blue-mid) 50%, var(--isp-navy) 100%);
+  color: #ffffff;
+  border-radius: var(--isp-radius-lg);
+  border: 1px solid var(--isp-blue-border);
+  box-shadow: 0 4px 6px -1px rgba(10, 34, 70, 0.1);
+}
+
+/* --------------------------------------------------------------------------
+   5. STOPLICHT STATUS BANNERS & VERKEERSLICHT INDICATOREN
+   -------------------------------------------------------------------------- */
+.isp-status-green {
+  background-color: var(--isp-green-bg);
+  border-color: var(--isp-green-border);
+  color: var(--isp-green-text);
+}
+.isp-status-amber {
+  background-color: var(--isp-amber-bg);
+  border-color: var(--isp-amber-border);
+  color: var(--isp-amber-text);
+}
+.isp-status-red {
+  background-color: var(--isp-red-bg);
+  border-color: var(--isp-red-border);
+  color: var(--isp-red-text);
+}
+
+/* Status Badges */
+.isp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  border: 1px solid transparent;
+}
+.isp-badge-green {
+  background-color: var(--isp-green-bg);
+  color: var(--isp-green-text);
+  border-color: var(--isp-green-border);
+}
+.isp-badge-amber {
+  background-color: var(--isp-amber-bg);
+  color: var(--isp-amber-text);
+  border-color: var(--isp-amber-border);
+}
+.isp-badge-red {
+  background-color: var(--isp-red-bg);
+  color: var(--isp-red-text);
+  border-color: var(--isp-red-border);
+}
+
+/* --------------------------------------------------------------------------
+   6. KPI DIAGNOSEKAARTEN (BUDGET, UREN, INKOOP, LEVERANCIERS)
+   -------------------------------------------------------------------------- */
+.isp-kpi-card {
+  background-color: #ffffff;
+  border: 2px solid var(--isp-border);
+  border-radius: var(--isp-radius-md);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: all 0.2s ease;
+}
+.isp-kpi-card.state-good {
+  border-color: #34d399;
+}
+.isp-kpi-card.state-warn {
+  border-color: #fbbf24;
+}
+.isp-kpi-card.state-danger {
+  border-color: #f43f5e;
+}
+
+/* --------------------------------------------------------------------------
+   7. TABELLEN & PAGINERING (PROJECTENREGISTER & STANDUP)
+   -------------------------------------------------------------------------- */
+.isp-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+.isp-table thead tr {
+  background-color: var(--isp-bg-alt);
+  border-bottom: 1px solid var(--isp-border);
+  color: var(--isp-navy);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.isp-table th,
+.isp-table td {
+  padding: 12px 16px;
+}
+.isp-table tbody tr {
+  border-bottom: 1px solid #e2e8f0;
+  transition: background-color 0.15s ease;
+}
+.isp-table tbody tr:hover {
+  background-color: #f1f5f9;
+}
+
+/* --------------------------------------------------------------------------
+   8. KNOPPEN & FORMULIEREN
+   -------------------------------------------------------------------------- */
+.isp-btn-primary {
+  background-color: var(--isp-navy);
+  color: #ffffff;
+  font-weight: 700;
+  border-radius: var(--isp-radius-md);
+  padding: 10px 18px;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease, transform 0.05s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.isp-btn-primary:hover {
+  background-color: var(--isp-blue-mid);
+}
+.isp-btn-primary:active {
+  transform: scale(0.99);
+}
+
+.isp-btn-secondary {
+  background-color: #ffffff;
+  color: var(--isp-navy);
+  font-weight: 700;
+  border: 1px solid var(--isp-border);
+  border-radius: var(--isp-radius-md);
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.isp-btn-secondary:hover {
+  background-color: var(--isp-bg-alt);
+  border-color: #cbd5e1;
+}
+
+.isp-input {
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: var(--isp-radius-md);
+  padding: 8px 12px;
+  font-size: 14px;
+  color: var(--isp-navy);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.isp-input:focus {
+  outline: none;
+  border-color: var(--isp-navy);
+  box-shadow: 0 0 0 3px rgba(10, 34, 70, 0.15);
+}
+
+/* --------------------------------------------------------------------------
+   9. MODALS & TOAST
+   -------------------------------------------------------------------------- */
+.isp-modal-overlay {
+  background-color: rgba(10, 34, 70, 0.75);
+  backdrop-filter: blur(2px);
+}
+.isp-modal-header {
+  background-color: var(--isp-navy);
+  color: #ffffff;
+  padding: 16px 24px;
+}
+
+/* --------------------------------------------------------------------------
+   10. PRINT-FRIENDLY @media print STYLING (A4 PDF EXPORT)
+   -------------------------------------------------------------------------- */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+  body {
+    background: #ffffff !important;
+    color: #0a2246 !important;
+    font-size: 11pt;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  .print-break-inside-avoid {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .print-card {
+    box-shadow: none !important;
+    border: 1px solid #cbd5e1 !important;
+    background: #ffffff !important;
+  }
+  canvas {
+    max-height: 220px !important;
+  }
+}
