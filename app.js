@@ -694,7 +694,7 @@ function parseUrenregistratieCsv(text) {
       if (pNum && totaalUrenRij > 0) {
         const project = AppState.projects.find(p => p.projectnummer === pNum);
         if (project) {
-          project.werkelijkeUren += totaalUrenRij;
+          project.werkelijkeUren = totaalUrenRij;
           totalUpdated++;
         }
       }
@@ -1430,6 +1430,7 @@ function parseUrenregistratieCsv(text) {
       }
 
       try {
+        let feedbackBoxMsg = '';
         if (importType === 'projecten') {
           // OUDE LOGICA: Nieuwe projecten importeren
           const imported = parseFlexibleCsv(rawText, AppState.globalHourlyRate);
