@@ -1664,7 +1664,17 @@
             class="w-full p-3 text-xs font-mono-num bg-[#f4f7fb] border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0a2246]"
           ></textarea>
         </div>
-
+<!-- NIEUW: Keuzemenu voor type import -->
+<div class="mt-4 mb-2">
+  <label for="importTypeSelect" class="block text-xs font-extrabold uppercase text-[#0a2246] mb-1">
+    Wat voor type bestand ga je importeren?
+  </label>
+  <select id="importTypeSelect" class="w-full px-3.5 py-2.5 text-sm font-semibold bg-[#f4f7fb] border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0a2246] cursor-pointer">
+    <option value="projecten">1. Nieuwe Projectenlijst (Standaard ISP structuur)</option>
+    <option value="uren">2. Urenregistratie (Update werkelijke uren van bestaande projecten)</option>
+    <option value="calculatie">3. Voorcalculatie (Update begroting van het HUIDIGE project)</option>
+  </select>
+</div>
         <div id="importFeedbackBox" class="hidden text-xs p-3 rounded-xl"></div>
       </div>
 

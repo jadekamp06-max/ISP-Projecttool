@@ -669,7 +669,77 @@
 
     return importedProjects;
   }
+function parseUrenregistratieCsv(text) {
+    const lines = String(text || '').split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+    let totalUpdated = 0;
+    
+    // Bepaal het scheidingsteken (meestal ; in Nederlandse Excel CSV's)
+    const delimiter = (lines[0].match(/;/g) || []).length > (lines[0].match(/,/g) || []).length ? ';' : ',';
 
+    // Vind de header-rij (die begint met Projectnummer)
+    const headerIdx = lines.findIndex(line => line.toLowerCase().includes('projectnummer'));
+    if (headerIdx === -1) throw new Error('Kan de header "Projectnummer" niet vinden in dit bestand.');
+
+    // Loop door alle datarijen onder de header
+    for (let i = headerIdx + 1; i < lines.length; i++) {
+      const cols = lines[i].split(delimiter);
+      if (cols.length < 3) continue;
+
+      const pNum = String(cols[0]).trim();
+      // Vervang komma door punt voor decimalen en maak er een getal van
+      const uren = parseFloat(String(cols[2]).replace(',', '.')) || 0;
+      const overuren = parseFloat(String(cols[3] || '0').replace(',', '.')) || 0;
+      const totaalUrenRij = uren + overuren;
+
+      if (pNum && totaalUrenRij > 0) {
+        const project = AppState.projects.find(p => p.projectnummer === pNum);
+        if (project) {
+          project.werkelijkeUren += totaalUrenRij;
+          totalUpdated++;
+        }
+      }
+    }
+    
+    if (totalUpdated === 0) throw new Error('Geen uren gevonden voor bekende projectnummers.');
+    return totalUpdated;
+  }
+
+  function parseCalculatieCsv(text, targetProject) {
+    if (!targetProject) throw new Error('Selecteer eerst een project op het dashboard voordat je een calculatie importeert.');
+    
+    const lines = String(text || '').split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+    const delimiter = (lines[0].match(/;/g) || []).length > (lines[0].match(/,/g) || []).length ? ';' : ',';
+    
+    let urenGevonden = false;
+    let materiaalGevonden = false;
+
+    lines.forEach(line => {
+      const cols = line.split(delimiter).map(c => c.trim());
+      
+      // Zoek naar de rij met "Werkplaatsuren" of "Manuren"
+      if (line.toLowerCase().includes('werkplaatsuren') || line.toLowerCase().includes('manuren')) {
+        // Zoek het eerste logische getal in deze rij (bijv. 38)
+        const uren = cols.map(c => parseFloat(c.replace(',', '.'))).find(n => !isNaN(n) && n > 0 && n < 10000);
+        if (uren) {
+          targetProject.begroteUren = uren;
+          urenGevonden = true;
+        }
+      }
+      
+      // Zoek naar de rij met "Materialen"
+      if (line.toLowerCase().includes('materialen')) {
+        const mat = cols.map(c => parseFloat(c.replace(',', '.'))).find(n => !isNaN(n) && n > 0);
+        if (mat) {
+          targetProject.begrootMateriaal = mat;
+          materiaalGevonden = true;
+        }
+      }
+    });
+
+    if (!urenGevonden && !materiaalGevonden) {
+      throw new Error('Kon geen "Werkplaatsuren" of "Materialen" bedragen vinden in de CSV.');
+    }
+  }
   function exportCalculatedCsv() {
     const headers = [
       'ISP_Projectbenaming',
@@ -1345,41 +1415,64 @@
       reader.readAsText(file);
     });
 
-    document.getElementById('processImportBtn')?.addEventListener('click', () => {
+  document.getElementById('processImportBtn')?.addEventListener('click', () => {
       const rawText = document.getElementById('csvPasteTextarea').value;
-      try {
-        const imported = parseFlexibleCsv(rawText, AppState.globalHourlyRate);
-        const replaceAll = document.getElementById('replaceOnImportCheckbox').checked;
+      const importType = document.getElementById('importTypeSelect').value;
+      const feedbackBox = document.getElementById('importFeedbackBox');
+      
+      if (!rawText.trim()) {
+        if (feedbackBox) {
+          feedbackBox.className = 'text-xs p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 font-semibold';
+          feedbackBox.textContent = 'Plak eerst CSV tekst of upload een bestand.';
+          feedbackBox.classList.remove('hidden');
+        }
+        return;
+      }
 
-        if (replaceAll) {
-          AppState.projects = imported;
-        } else {
-          imported.forEach(imp => {
-            const existingIdx = AppState.projects.findIndex(
-              p => p.projectnummer.toLowerCase() === imp.projectnummer.toLowerCase()
-            );
-            if (existingIdx !== -1) {
-              AppState.projects[existingIdx] = imp;
-            } else {
-              AppState.projects.unshift(imp);
-            }
-          });
+      try {
+        if (importType === 'projecten') {
+          // OUDE LOGICA: Nieuwe projecten importeren
+          const imported = parseFlexibleCsv(rawText, AppState.globalHourlyRate);
+          const replaceAll = document.getElementById('replaceOnImportCheckbox').checked;
+
+          if (replaceAll) {
+            AppState.projects = imported;
+          } else {
+            imported.forEach(imp => {
+              const existingIdx = AppState.projects.findIndex(p => p.projectnummer === imp.projectnummer);
+              if (existingIdx !== -1) AppState.projects[existingIdx] = imp;
+              else AppState.projects.unshift(imp);
+            });
+          }
+          AppState.selectedProjectId = imported[0].projectnummer;
+          AppState.trackRecentProject(imported[0].projectnummer);
+          feedbackBoxMsg = `Succesvol ${imported.length} project(en) geïmporteerd!`;
+          
+        } else if (importType === 'uren') {
+          // NIEUWE LOGICA: Uren optellen bij bestaande projecten
+          const updatedCount = parseUrenregistratieCsv(rawText);
+          feedbackBoxMsg = `Urenregistratie verwerkt! Uren bijgewerkt voor ${updatedCount} projecten.`;
+          
+        } else if (importType === 'calculatie') {
+          // NIEUWE LOGICA: Begroting van actief project updaten
+          const currentProj = AppState.getCurrentProject();
+          parseCalculatieCsv(rawText, currentProj);
+          feedbackBoxMsg = `Voorcalculatie ingeladen voor project ${currentProj.projectnummer}!`;
         }
 
-        AppState.selectedProjectId = imported[0].projectnummer;
-        AppState.trackRecentProject(imported[0].projectnummer);
         AppState.saveProjects();
 
         if (feedbackBox) {
           feedbackBox.className = 'text-xs p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 font-semibold';
-          feedbackBox.textContent = `Succesvol ${imported.length} project(en) geïmporteerd!`;
+          feedbackBox.textContent = feedbackBoxMsg;
           feedbackBox.classList.remove('hidden');
         }
 
         renderAll(true);
         switchTab('dashboard');
-        showToast(`${imported.length} project(en) succesvol geïmporteerd!`);
-        setTimeout(() => importModal?.classList.add('hidden'), 900);
+        showToast(feedbackBoxMsg);
+        setTimeout(() => importModal?.classList.add('hidden'), 1500);
+
       } catch (err) {
         if (feedbackBox) {
           feedbackBox.className = 'text-xs p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 font-semibold';
