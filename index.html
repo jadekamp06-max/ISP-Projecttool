@@ -564,6 +564,7 @@
                 <th class="py-3.5 px-4">Fase</th>
                 <th class="py-3.5 px-4">Hoe staat het ervoor?</th>
                 <th class="py-3.5 px-4 text-right">Uren (Werk. / Begr.)</th>
+                <th class="py-3.5 px-4 text-right">Verkoopprijs (€)</th>
                 <th class="py-3.5 px-4 text-right internal-cost-field">Resultaat Budget (€)</th>
                 <th class="py-3.5 px-4">Leverancier / Onderdelen</th>
                 <th class="py-3.5 px-4 text-right">Statusscherm</th>
@@ -685,8 +686,10 @@
             <h2 id="headerFullIspTitle" class="text-lg sm:text-2xl font-extrabold tracking-tight text-white mt-1.5">
               200490 Klant Omschrijving project
             </h2>
-            <div class="text-xs text-blue-200 mt-0.5 internal-cost-field">
-              Uurtarief: <strong id="headerHourlyRate" class="font-mono-num text-white">&euro; 65,00/u</strong>
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-blue-200 mt-1">
+              <span class="internal-cost-field">Uurtarief: <strong id="headerHourlyRate" class="font-mono-num text-white">&euro; 65,00/u</strong></span>
+              <span>Verkoopprijs: <strong id="headerSalesPrice" class="font-mono-num text-white font-extrabold">&euro; 0,00</strong></span>
+              <span id="headerSalesMarginBadge" class="internal-cost-field px-2 py-0.5 rounded bg-[#12356b] text-blue-100 border border-[#2b5fb3]/50 font-mono-num">Marge: &euro; 0,00 (0,0%)</span>
             </div>
           </div>
 
@@ -779,14 +782,20 @@
                 </div>
               </div>
 
-              <div class="mt-4 pt-3 border-t border-slate-100 text-xs flex justify-between items-center internal-cost-field">
-                <div>
-                  <span class="text-slate-400 block text-[11px]">Begroot</span>
-                  <span id="kpiBudgetTotalPlanned" class="font-mono-num font-semibold text-slate-700">€ 0,00</span>
+              <div class="mt-4 pt-3 border-t border-slate-100 text-xs space-y-1.5">
+                <div class="flex justify-between items-center">
+                  <span class="text-slate-500 font-semibold">Verkoopprijs</span>
+                  <span id="kpiBudgetSalesPrice" class="font-mono-num font-extrabold text-[#0a2246]">€ 0,00</span>
                 </div>
-                <div class="text-right">
-                  <span class="text-slate-400 block text-[11px]">Werkelijk</span>
-                  <span id="kpiBudgetTotalActual" class="font-mono-num font-bold text-[#0a2246]">€ 0,00</span>
+                <div class="flex justify-between items-center internal-cost-field">
+                  <div>
+                    <span class="text-slate-400 block text-[11px]">Begroot</span>
+                    <span id="kpiBudgetTotalPlanned" class="font-mono-num font-semibold text-slate-700">€ 0,00</span>
+                  </div>
+                  <div class="text-right">
+                    <span class="text-slate-400 block text-[11px]">Werkelijk</span>
+                    <span id="kpiBudgetTotalActual" class="font-mono-num font-bold text-[#0a2246]">€ 0,00</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1016,7 +1025,7 @@
                         <input
                           id="inputPlannedHours"
                           type="number"
-                          step="1"
+                          step="any"
                           min="0"
                           class="w-20 text-right font-mono-num font-bold text-[#0a2246] focus:outline-none"
                         />
@@ -1029,7 +1038,7 @@
                           <input
                             id="inputActualHours"
                             type="number"
-                            step="1"
+                            step="any"
                             min="0"
                             class="w-20 text-right font-mono-num font-extrabold text-[#0a2246] focus:outline-none"
                           />
@@ -1063,7 +1072,7 @@
                         <input
                           id="inputHourlyRate"
                           type="number"
-                          step="0.5"
+                          step="any"
                           min="0"
                           class="w-20 text-right font-mono-num font-bold text-[#0a2246] focus:outline-none"
                         />
@@ -1106,7 +1115,7 @@
                         <input
                           id="inputPlannedMaterial"
                           type="number"
-                          step="50"
+                          step="any"
                           min="0"
                           class="w-24 text-right font-mono-num font-bold text-[#0a2246] focus:outline-none"
                         />
@@ -1119,7 +1128,7 @@
                           <input
                             id="inputActualMaterial"
                             type="number"
-                            step="50"
+                            step="any"
                             min="0"
                             class="w-24 text-right font-mono-num font-extrabold text-[#0a2246] focus:outline-none"
                           />
@@ -1155,6 +1164,32 @@
                       € 0,00
                     </td>
                     <td id="tableTotalPct" class="py-4 px-4 text-right font-mono-num text-sm">
+                      0,0%
+                    </td>
+                  </tr>
+
+                  <!-- Rij 6: VERKOOPPRIJS (OFFERTE) -->
+                  <tr class="bg-[#eef3f9] hover:bg-[#e5edf7] font-bold">
+                    <td class="py-3.5 px-4">
+                      <div class="font-extrabold text-[#0a2246]">Verkoopprijs (Offerte)</div>
+                      <div class="text-[11px] text-slate-500 no-print">Klantprijs &amp; marge t.o.v. werkelijke kosten</div>
+                    </td>
+                    <td class="py-3.5 px-4 text-right" colspan="2">
+                      <div class="inline-flex items-center bg-white border-2 border-[#0a2246] rounded-lg px-2.5 py-1.5">
+                        <span class="text-slate-500 font-mono-num text-xs mr-1 font-bold">&euro;</span>
+                        <input
+                          id="inputSalesPrice"
+                          type="number"
+                          step="any"
+                          min="0"
+                          class="w-28 text-right font-mono-num font-extrabold text-[#0a2246] focus:outline-none"
+                        />
+                      </div>
+                    </td>
+                    <td id="tableSalesMarginEuro" class="py-3.5 px-4 text-right font-mono-num font-bold internal-cost-field">
+                      € 0,00
+                    </td>
+                    <td id="tableSalesMarginPct" class="py-3.5 px-4 text-right font-mono-num font-bold internal-cost-field">
                       0,0%
                     </td>
                   </tr>
@@ -1230,7 +1265,7 @@
           <!-- Action Bar: Save Changes & Delete -->
           <div class="pt-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 no-print">
             <div class="text-xs text-slate-500">
-              <em>Wijzigingen worden direct doorgerekend en opgeslagen in localStorage.</em>
+              <em id="saveStatusIndicator">Wijzigingen worden direct doorgerekend en opgeslagen in localStorage.</em>
             </div>
             <div class="flex items-center gap-2 ml-auto">
               <button
@@ -1512,6 +1547,7 @@
                 <th class="py-3.5 px-4">Fase</th>
                 <th class="py-3.5 px-4">Status</th>
                 <th class="py-3.5 px-4 text-right">Uren (Werk. / Begr.)</th>
+                <th class="py-3.5 px-4 text-right">Verkoopprijs (€)</th>
                 <th class="py-3.5 px-4 text-right internal-cost-field">Resultaat Budget (€)</th>
                 <th class="py-3.5 px-4 text-right">Afwijking (%)</th>
                 <th class="py-3.5 px-4">Bestelstatus</th>
@@ -1574,7 +1610,7 @@
               <input
                 id="modalGlobalRateInput"
                 type="number"
-                step="0.5"
+                step="any"
                 min="1"
                 class="w-24 text-sm font-mono-num font-bold bg-transparent text-[#0a2246] focus:outline-none"
               />
@@ -1622,17 +1658,14 @@
     <div class="bg-white rounded-2xl shadow-2xl border border-[#dbe4f0] max-w-2xl w-full overflow-hidden">
       <div class="bg-[#0a2246] text-white px-6 py-4 flex items-center justify-between">
         <h3 class="text-base font-bold flex items-center gap-2">
-          <span>Excel / CSV Projectdata Importeren (ISP-structuur vanaf 200001)</span>
+          <span>Excel / CSV Projectdata Importeren (Voorcalculatie &amp; Urenregistratie)</span>
         </h3>
         <button id="closeImportModalBtn" type="button" class="text-blue-200 hover:text-white text-2xl leading-none cursor-pointer">&times;</button>
       </div>
 
-      <div class="p-6 space-y-4">
+      <div class="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
         <p class="text-xs sm:text-sm text-slate-600 leading-relaxed">
-          Upload een CSV-bestand uit Excel of plak uw rijen hieronder. Ondersteunt de vaste ISP-structuur (<code class="font-mono-num text-[#0a2246] font-bold">200001 Klant Omschrijving project</code>):
-          <code class="text-xs bg-[#eef3f9] px-1.5 py-0.5 rounded font-mono-num text-[#0a2246] block mt-1">
-            Projectnummer;Klant;Projectnaam;Status;BegroteUren;WerkelijkeUren;BegrootMateriaal;WerkelijkMateriaal;Tarief;Bestelstatus
-          </code>
+          Upload een ISP Excel/CSV-bestand (<strong>Basic calculation / Voorcalculatie</strong> of <strong>Urenregistratie</strong>) of plak de inhoud hieronder. Projecten worden automatisch gekoppeld op basis van het projectnummer.
         </p>
 
         <div class="border-2 border-dashed border-[#b6c8e2] rounded-xl p-5 text-center bg-[#f4f7fb] hover:bg-[#eef3f9] transition">
@@ -1642,39 +1675,39 @@
             accept=".csv,.txt,.tsv"
             class="block w-full text-xs text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#0a2246] file:text-white hover:file:bg-[#12356b] cursor-pointer"
           />
-          <div class="mt-3 flex justify-center">
-            <button
-              id="downloadSampleCsvBtn"
-              type="button"
-              class="text-xs font-extrabold text-[#0a2246] hover:underline cursor-pointer"
-            >
-              ↓ Download voorbeeld CSV-sjabloon (200004, 200005...)
-            </button>
-          </div>
         </div>
+
+        <div class="bg-[#f4f7fb] border border-[#dbe4f0] rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="text-xs text-slate-700">
+            <label for="importTargetProjectInput" class="font-extrabold text-[#0a2246] block">
+              Projectnummer koppeling (voor calculatiebestand zonder projectnummer)
+            </label>
+            <span class="text-[11px] text-slate-500">
+              Staat er al een vast <code class="font-mono-num font-bold">Projectnummer</code> in het bestand? Dan wordt dat automatisch gebruikt.
+            </span>
+          </div>
+          <input
+            id="importTargetProjectInput"
+            type="text"
+            placeholder="Bijv. 200360"
+            class="w-full sm:w-36 px-3 py-2 text-xs font-mono-num font-extrabold bg-white border border-slate-300 rounded-lg text-[#0a2246] focus:outline-none focus:ring-2 focus:ring-[#0a2246]"
+          />
+        </div>
+
+        <div id="importPreviewBox" class="hidden text-xs p-3.5 rounded-xl"></div>
 
         <div>
           <label for="csvPasteTextarea" class="block text-xs font-extrabold uppercase text-[#0a2246] mb-1">
-            Of plak hier direct rijen vanuit Excel / CSV:
+            Of plak hier direct de inhoud vanuit Excel / CSV:
           </label>
           <textarea
             id="csvPasteTextarea"
             rows="4"
-            placeholder="Projectnummer;Klant;Projectnaam;Status;BegroteUren;WerkelijkeUren;BegrootMateriaal;WerkelijkMateriaal;Tarief;Bestelstatus&#10;200004;Hafen Chemie B.V.;Revisie Koelwaterpomp;Lopend;80;72;6500;6100;65;Op schema"
+            placeholder="Plak hier de rijen uit een ISP Calculatie-CSV (Basic calculation) of Urenregistratie-CSV..."
             class="w-full p-3 text-xs font-mono-num bg-[#f4f7fb] border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0a2246]"
           ></textarea>
         </div>
-<!-- NIEUW: Keuzemenu voor type import -->
-<div class="mt-4 mb-2">
-  <label for="importTypeSelect" class="block text-xs font-extrabold uppercase text-[#0a2246] mb-1">
-    Wat voor type bestand ga je importeren?
-  </label>
-  <select id="importTypeSelect" class="w-full px-3.5 py-2.5 text-sm font-semibold bg-[#f4f7fb] border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0a2246] cursor-pointer">
-    <option value="projecten">1. Nieuwe Projectenlijst (Standaard ISP structuur)</option>
-    <option value="uren">2. Urenregistratie (Update werkelijke uren van bestaande projecten)</option>
-    <option value="calculatie">3. Voorcalculatie (Update begroting van het HUIDIGE project)</option>
-  </select>
-</div>
+
         <div id="importFeedbackBox" class="hidden text-xs p-3 rounded-xl"></div>
       </div>
 

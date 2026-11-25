@@ -15,12 +15,47 @@
     SELECTED_ID: 'isp_barendrecht_selected_project_v3_200490',
     GLOBAL_RATE: 'isp_barendrecht_global_rate_v1',
     GEMINI_API_KEY: 'isp_barendrecht_gemini_api_key_v1',
-    ANONYMIZE_AI: 'isp_barendrecht_anonymize_ai_v1'
+    ANONYMIZE_AI: 'isp_barendrecht_anonymize_ai_v1',
+    CLIENT_VIEW: 'isp_barendrecht_client_view_v1',
+    RECENT_IDS: 'isp_barendrecht_recent_ids_v1',
+    MORNING_NOTES: 'isp_barendrecht_morning_notes_v1',
+    MORNING_ONLY_ACTIVE: 'isp_barendrecht_morning_only_active_v1',
+    MORNING_FILTER: 'isp_barendrecht_morning_filter_v1'
   };
 
   const DEFAULT_GLOBAL_RATE = 65.0;
+  const DEFAULT_SALES_MARKUP_FACTOR = 1.496; // 1.02 (garantie) * 1.10 (projectbeheer) / (1 - 0.25 gewenste marge)
   const ISP_START_PROJECT_NUMBER = 200001;
   const ISP_CURRENT_MAX_DEMO_NUMBER = 200490;
+
+  function safeStorageGet(key) {
+    try {
+      return localStorage.getItem(key);
+    } catch (e) {
+      console.warn('Kan niet lezen uit localStorage:', e);
+      return null;
+    }
+  }
+
+  function safeStorageSet(key, value) {
+    try {
+      localStorage.setItem(key, value);
+      return true;
+    } catch (e) {
+      console.error('Fout bij opslaan in localStorage:', e);
+      if (typeof showToast === 'function') {
+        showToast('Opslaan in browseropslag mislukt (opslaglimiet of geblokkeerd).');
+      }
+      return false;
+    }
+  }
+
+  function parseNumericInput(val, fallback = 0) {
+    if (val === undefined || val === null || val === '') return fallback;
+    const cleaned = String(val).replace(',', '.').trim();
+    const num = parseFloat(cleaned);
+    return isNaN(num) || !isFinite(num) ? fallback : num;
+  }
 
   /**
    * Formateer de vaste ISP-projectbenaming:
@@ -177,6 +212,7 @@
     for (let num = ISP_CURRENT_MAX_DEMO_NUMBER; num >= ISP_START_PROJECT_NUMBER; num--) {
       if (specialProjectsByNum[num]) {
         const sp = specialProjectsByNum[num];
+        const spBudget = (sp.begroteUren * hourlyRate) + sp.begrootMateriaal;
         allProjects.push({
           projectnummer: String(num),
           klant: sp.klant,
@@ -187,6 +223,7 @@
           begrootMateriaal: sp.begrootMateriaal,
           werkelijkMateriaal: sp.werkelijkMateriaal,
           tarief: hourlyRate,
+          verkoopprijs: Math.round(spBudget * DEFAULT_SALES_MARKUP_FACTOR),
           bestelstatus: sp.bestelstatus,
           heeftVertraging: sp.heeftVertraging,
           aiVerified: false
@@ -239,6 +276,7 @@
         }
       }
 
+      const baseBudget = (begroteUren * hourlyRate) + begrootMateriaal;
       allProjects.push({
         projectnummer: String(num),
         klant,
@@ -249,6 +287,7 @@
         begrootMateriaal,
         werkelijkMateriaal,
         tarief: hourlyRate,
+        verkoopprijs: Math.round(baseBudget * DEFAULT_SALES_MARKUP_FACTOR),
         bestelstatus,
         heeftVertraging,
         aiVerified: false
@@ -262,21 +301,42 @@
     const bestelstatus = String(raw.bestelstatus || 'Op schema').trim();
     const autoDelayDetected = detectSupplierDelayFromText(bestelstatus);
     const defaultNum = String(ISP_START_PROJECT_NUMBER + fallbackOffset);
+    const begroteUren = Math.max(0, parseNumericInput(raw.begroteUren, 0));
+    const werkelijkeUren = Math.max(0, parseNumericInput(raw.werkelijkeUren, 0));
+    const begrootMateriaal = Math.max(0, parseNumericInput(raw.begrootMateriaal, 0));
+    const werkelijkMateriaal = Math.max(0, parseNumericInput(raw.werkelijkMateriaal, 0));
+    const tarief = Math.max(0, parseNumericInput(raw.tarief, fallbackRate));
+    const defaultSalesPrice = Math.round(((begroteUren * tarief) + begrootMateriaal) * DEFAULT_SALES_MARKUP_FACTOR);
+    const hasExplicitSales = raw.verkoopprijs !== undefined && raw.verkoopprijs !== null && raw.verkoopprijs !== '';
+    const verkoopprijs = hasExplicitSales
+      ? Math.max(0, parseNumericInput(raw.verkoopprijs, defaultSalesPrice))
+      : defaultSalesPrice;
 
-    return {
+    const normalized = {
       projectnummer: String(raw.projectnummer || defaultNum).trim(),
       klant: String(raw.klant || 'Onbekende Klant').trim(),
       projectnaam: String(raw.projectnaam || 'Omschrijving project').trim(),
       status: String(raw.status || 'Lopend').toLowerCase().includes('afgerond') ? 'Afgerond' : 'Lopend',
-      begroteUren: Math.max(0, parseFloat(raw.begroteUren) || 0),
-      werkelijkeUren: Math.max(0, parseFloat(raw.werkelijkeUren) || 0),
-      begrootMateriaal: Math.max(0, parseFloat(raw.begrootMateriaal) || 0),
-      werkelijkMateriaal: Math.max(0, parseFloat(raw.werkelijkMateriaal) || 0),
-      tarief: Math.max(0, parseFloat(raw.tarief) || fallbackRate),
+      begroteUren,
+      werkelijkeUren,
+      begrootMateriaal,
+      werkelijkMateriaal,
+      tarief,
+      verkoopprijs,
       bestelstatus,
       heeftVertraging: typeof raw.heeftVertraging === 'boolean' ? raw.heeftVertraging : autoDelayDetected,
       aiVerified: Boolean(raw.aiVerified)
     };
+
+    if (raw.werkelijkeWerkplaatsUren !== undefined) normalized.werkelijkeWerkplaatsUren = Math.max(0, parseNumericInput(raw.werkelijkeWerkplaatsUren, 0));
+    if (raw.werkelijkeKantoorUren !== undefined) normalized.werkelijkeKantoorUren = Math.max(0, parseNumericInput(raw.werkelijkeKantoorUren, 0));
+    if (raw.werkelijkeOveruren !== undefined) normalized.werkelijkeOveruren = Math.max(0, parseNumericInput(raw.werkelijkeOveruren, 0));
+    if (raw.begroteWerkplaatsUren !== undefined) normalized.begroteWerkplaatsUren = Math.max(0, parseNumericInput(raw.begroteWerkplaatsUren, 0));
+    if (raw.begroteKantoorUren !== undefined) normalized.begroteKantoorUren = Math.max(0, parseNumericInput(raw.begroteKantoorUren, 0));
+    if (raw.urenLaatstGeimporteerd) normalized.urenLaatstGeimporteerd = String(raw.urenLaatstGeimporteerd);
+    if (raw.calculatieLaatstGeimporteerd) normalized.calculatieLaatstGeimporteerd = String(raw.calculatieLaatstGeimporteerd);
+
+    return normalized;
   }
 
   function detectSupplierDelayFromText(statusText) {
@@ -307,17 +367,56 @@
     homePage: 1,
     homePageSize: 20,
     morningOnlyActive: true,
+    morningTableFilter: 'Lopend',
+    morningNotes: [],
+    lastSavedAt: null,
 
     init() {
-      const savedRate = parseFloat(localStorage.getItem(STORAGE_KEYS.GLOBAL_RATE));
+      const savedRate = parseFloat(safeStorageGet(STORAGE_KEYS.GLOBAL_RATE));
       this.globalHourlyRate = !isNaN(savedRate) && savedRate > 0 ? savedRate : DEFAULT_GLOBAL_RATE;
 
-      this.geminiApiKey = localStorage.getItem(STORAGE_KEYS.GEMINI_API_KEY) || '';
+      this.geminiApiKey = safeStorageGet(STORAGE_KEYS.GEMINI_API_KEY) || '';
 
-      const savedAnon = localStorage.getItem(STORAGE_KEYS.ANONYMIZE_AI);
+      const savedAnon = safeStorageGet(STORAGE_KEYS.ANONYMIZE_AI);
       this.anonymizeBeforeAi = savedAnon === null ? true : savedAnon === 'true';
 
-      const rawProjects = localStorage.getItem(STORAGE_KEYS.PROJECTS);
+      const savedClientView = safeStorageGet(STORAGE_KEYS.CLIENT_VIEW);
+      this.clientViewActive = savedClientView === 'true';
+
+      const savedMorningActive = safeStorageGet(STORAGE_KEYS.MORNING_ONLY_ACTIVE);
+      this.morningOnlyActive = savedMorningActive === null ? true : savedMorningActive === 'true';
+
+      const savedMorningFilter = safeStorageGet(STORAGE_KEYS.MORNING_FILTER);
+      if (savedMorningFilter === 'Lopend' || savedMorningFilter === 'Afgerond' || savedMorningFilter === 'Alles') {
+        this.morningTableFilter = savedMorningFilter;
+      }
+
+      const rawRecent = safeStorageGet(STORAGE_KEYS.RECENT_IDS);
+      if (rawRecent) {
+        try {
+          const parsedRecent = JSON.parse(rawRecent);
+          if (Array.isArray(parsedRecent) && parsedRecent.length > 0) {
+            this.recentProjectIds = parsedRecent.map(String);
+          }
+        } catch (e) {
+          console.warn('Fout bij lezen recente projecten:', e);
+        }
+      }
+
+      const rawNotes = safeStorageGet(STORAGE_KEYS.MORNING_NOTES);
+      if (rawNotes) {
+        try {
+          const parsedNotes = JSON.parse(rawNotes);
+          if (Array.isArray(parsedNotes)) {
+            this.morningNotes = parsedNotes;
+          }
+        } catch (e) {
+          console.warn('Fout bij lezen ochtendoverleg notities:', e);
+        }
+      }
+
+      this.projects = [];
+      const rawProjects = safeStorageGet(STORAGE_KEYS.PROJECTS);
       if (rawProjects) {
         try {
           const parsed = JSON.parse(rawProjects);
@@ -334,7 +433,7 @@
         this.saveProjects();
       }
 
-      const savedSelectedId = localStorage.getItem(STORAGE_KEYS.SELECTED_ID);
+      const savedSelectedId = safeStorageGet(STORAGE_KEYS.SELECTED_ID);
       if (savedSelectedId && this.projects.some(p => p.projectnummer === savedSelectedId)) {
         this.selectedProjectId = savedSelectedId;
       } else {
@@ -343,14 +442,42 @@
     },
 
     saveProjects() {
-      localStorage.setItem(STORAGE_KEYS.PROJECTS, JSON.stringify(this.projects));
-      localStorage.setItem(STORAGE_KEYS.SELECTED_ID, this.selectedProjectId);
+      const okProjects = safeStorageSet(STORAGE_KEYS.PROJECTS, JSON.stringify(this.projects));
+      const okSelected = safeStorageSet(STORAGE_KEYS.SELECTED_ID, this.selectedProjectId);
+      safeStorageSet(STORAGE_KEYS.RECENT_IDS, JSON.stringify(this.recentProjectIds));
+      if (okProjects && okSelected) {
+        this.lastSavedAt = new Date();
+        updateSaveStatusIndicator();
+      }
+      return okProjects && okSelected;
     },
 
     saveSettings() {
-      localStorage.setItem(STORAGE_KEYS.GLOBAL_RATE, String(this.globalHourlyRate));
-      localStorage.setItem(STORAGE_KEYS.GEMINI_API_KEY, this.geminiApiKey);
-      localStorage.setItem(STORAGE_KEYS.ANONYMIZE_AI, String(this.anonymizeBeforeAi));
+      const okRate = safeStorageSet(STORAGE_KEYS.GLOBAL_RATE, String(this.globalHourlyRate));
+      const okKey = safeStorageSet(STORAGE_KEYS.GEMINI_API_KEY, this.geminiApiKey);
+      const okAnon = safeStorageSet(STORAGE_KEYS.ANONYMIZE_AI, String(this.anonymizeBeforeAi));
+      return okRate && okKey && okAnon;
+    },
+
+    saveUiPreferences() {
+      safeStorageSet(STORAGE_KEYS.CLIENT_VIEW, String(this.clientViewActive));
+      safeStorageSet(STORAGE_KEYS.MORNING_ONLY_ACTIVE, String(this.morningOnlyActive));
+      safeStorageSet(STORAGE_KEYS.MORNING_FILTER, String(this.morningTableFilter || 'Lopend'));
+    },
+
+    saveMorningNotes() {
+      return safeStorageSet(STORAGE_KEYS.MORNING_NOTES, JSON.stringify(this.morningNotes || []));
+    },
+
+    addMorningNote(note) {
+      if (!Array.isArray(this.morningNotes)) this.morningNotes = [];
+      this.morningNotes.unshift(note);
+      this.saveMorningNotes();
+    },
+
+    removeMorningNote(noteId) {
+      this.morningNotes = (this.morningNotes || []).filter(n => n.id !== noteId);
+      this.saveMorningNotes();
     },
 
     getCurrentProject() {
@@ -360,17 +487,29 @@
     trackRecentProject(projectnummer) {
       const clean = String(projectnummer);
       this.recentProjectIds = [clean, ...this.recentProjectIds.filter(id => id !== clean)].slice(0, 6);
+      safeStorageSet(STORAGE_KEYS.RECENT_IDS, JSON.stringify(this.recentProjectIds));
     },
 
     resetToDemoData() {
       this.globalHourlyRate = DEFAULT_GLOBAL_RATE;
       this.projects = getDefaultDemoProjects(this.globalHourlyRate);
       this.selectedProjectId = '200490';
+      this.recentProjectIds = ['200490', '200489', '200488', '200485', '200001'];
       this.homePage = 1;
       this.saveProjects();
       this.saveSettings();
     }
   };
+
+  function updateSaveStatusIndicator() {
+    const el = document.getElementById('saveStatusIndicator');
+    if (el && AppState.lastSavedAt) {
+      const timeStr = AppState.lastSavedAt.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      el.textContent = `Opgeslagen in browser (${timeStr})`;
+      el.classList.remove('text-slate-500');
+      el.classList.add('text-emerald-700', 'font-semibold');
+    }
+  }
 
   /* ===================================================================
    * 4. BEREKENINGSENGINE (VOORCALCULATIE VS. NACALCULATIE)
@@ -378,7 +517,9 @@
   function calculateProjectMetrics(project) {
     const begroteUren = Number(project.begroteUren) || 0;
     const werkelijkeUren = Number(project.werkelijkeUren) || 0;
-    const uurtarief = Number(project.tarief) || DEFAULT_GLOBAL_RATE;
+    const uurtarief = project.tarief !== undefined && project.tarief !== null && project.tarief !== ''
+      ? Math.max(0, Number(project.tarief) || 0)
+      : DEFAULT_GLOBAL_RATE;
     const begrootMateriaal = Number(project.begrootMateriaal) || 0;
     const werkelijkMateriaal = Number(project.werkelijkMateriaal) || 0;
 
@@ -387,6 +528,16 @@
 
     const totaalBegrootBudget = arbeidBegroot + begrootMateriaal;
     const totaleWerkelijkeKosten = arbeidWerkelijk + werkelijkMateriaal;
+
+    const hasExplicitSales = project.verkoopprijs !== undefined && project.verkoopprijs !== null && project.verkoopprijs !== '' && !isNaN(Number(project.verkoopprijs));
+    const verkoopprijs = hasExplicitSales
+      ? Math.max(0, Number(project.verkoopprijs))
+      : Math.round(totaalBegrootBudget * DEFAULT_SALES_MARKUP_FACTOR);
+
+    const begroteMargeEuro = verkoopprijs - totaalBegrootBudget;
+    const begroteMargePct = verkoopprijs > 0 ? (begroteMargeEuro / verkoopprijs) * 100 : 0;
+    const gerealiseerdeMargeEuro = verkoopprijs - totaleWerkelijkeKosten;
+    const gerealiseerdeMargePct = verkoopprijs > 0 ? (gerealiseerdeMargeEuro / verkoopprijs) * 100 : 0;
 
     const verschilBudget = totaalBegrootBudget - totaleWerkelijkeKosten;
     const verschilUren = begroteUren - werkelijkeUren;
@@ -405,7 +556,9 @@
       ? ((werkelijkMateriaal - begrootMateriaal) / begrootMateriaal) * 100
       : (werkelijkMateriaal > 0 ? 100 : 0);
 
-    const heeftVertraging = Boolean(project.heeftVertraging) || detectSupplierDelayFromText(project.bestelstatus);
+    const heeftVertraging = typeof project.heeftVertraging === 'boolean'
+      ? project.heeftVertraging
+      : detectSupplierDelayFromText(project.bestelstatus);
 
     let statusLevel = 'GROEN';
     let statusLabel = 'Binnen Budget';
@@ -444,6 +597,11 @@
       arbeidWerkelijk,
       totaalBegrootBudget,
       totaleWerkelijkeKosten,
+      verkoopprijs,
+      begroteMargeEuro,
+      begroteMargePct,
+      gerealiseerdeMargeEuro,
+      gerealiseerdeMargePct,
       verschilBudget,
       verschilUren,
       verschilMateriaal,
@@ -487,7 +645,8 @@
 
   function formatNumber(val) {
     const num = Number(val) || 0;
-    return Number.isInteger(num) ? String(num) : num.toFixed(1).replace('.', ',');
+    if (Number.isInteger(num)) return String(num);
+    return Number(num.toFixed(2)).toString().replace('.', ',');
   }
 
   let toastTimer = null;
@@ -547,16 +706,429 @@
     AppState.selectedProjectId = target.projectnummer;
     AppState.trackRecentProject(target.projectnummer);
     AppState.saveProjects();
+    if (!document.getElementById('viewProjectDashboard')) {
+      window.location.href = 'dashboard.html';
+      return;
+    }
     renderAll(true);
     switchTab('dashboard');
     showToast(`Status geopend: ${formatIspProjectTitle(target, AppState.clientViewActive)}`);
   }
 
   /* ===================================================================
-   * 7. CSV / EXCEL IMPORT & EXPORT
+   * 7. CSV / EXCEL IMPORT & EXPORT (VOORCALCULATIE, UREN & PROJECTLIJST)
    * =================================================================== */
-  function parseFlexibleCsv(text, defaultRate) {
-    const lines = String(text || '')
+  function stripUtf8Bom(str) {
+    return String(str || '').replace(/^\uFEFF/, '');
+  }
+
+  function detectCsvDelimiter(lines) {
+    const sample = lines.slice(0, 20).join('\n');
+    const semiCount = (sample.match(/;/g) || []).length;
+    const tabCount = (sample.match(/\t/g) || []).length;
+    const commaCount = (sample.match(/,/g) || []).length;
+
+    if (semiCount >= commaCount && semiCount >= tabCount && semiCount > 0) return ';';
+    if (tabCount > commaCount && tabCount > semiCount) return '\t';
+    return ',';
+  }
+
+  function splitCsvRow(rowStr, delimiter) {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < rowStr.length; i++) {
+      const ch = rowStr[i];
+      if (ch === '"') {
+        if (inQuotes && rowStr[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (ch === delimiter && !inQuotes) {
+        result.push(current.trim());
+        current = '';
+      } else {
+        current += ch;
+      }
+    }
+    result.push(current.trim());
+    return result;
+  }
+
+  function parseCleanNumber(val, delimiter = ';') {
+    if (val === undefined || val === null) return 0;
+    const raw = String(val).trim();
+    if (!raw || raw === '-' || raw === '--' || raw.startsWith('#')) return 0;
+
+    const hasCurrency = /€/.test(raw);
+    let s = raw.replace(/[€%\s\u00A0]/g, '').trim();
+    if (!s || s === '-' || s === '--' || s.startsWith('#')) return 0;
+
+    const lastComma = s.lastIndexOf(',');
+    const lastDot = s.lastIndexOf('.');
+
+    if (lastComma !== -1 && lastDot !== -1) {
+      if (lastComma > lastDot) {
+        s = s.replace(/\./g, '').replace(',', '.');
+      } else {
+        s = s.replace(/,/g, '');
+      }
+    } else if (lastComma !== -1) {
+      if (/^-?\d{1,3}(,\d{3})+$/.test(s) && delimiter === ',' && !hasCurrency) {
+        s = s.replace(/,/g, '');
+      } else {
+        s = s.replace(/,/g, '.');
+      }
+    } else if (lastDot !== -1) {
+      if ((hasCurrency || delimiter === ';') && /^-?\d{1,3}(\.\d{3})+$/.test(s)) {
+        s = s.replace(/\./g, '');
+      }
+    }
+
+    const n = parseFloat(s);
+    return isNaN(n) || !isFinite(n) ? 0 : n;
+  }
+
+  function normalizeHeaderToken(h) {
+    return stripUtf8Bom(h).toLowerCase().replace(/[^a-z0-9]/g, '');
+  }
+
+  function findColumnIndexExactFirst(normalizedHeaders, exactAliases, partialAliases, fallbackIdx = -1) {
+    for (const alias of exactAliases) {
+      const idx = normalizedHeaders.findIndex(h => h === alias);
+      if (idx !== -1) return idx;
+    }
+    for (const alias of partialAliases) {
+      const idx = normalizedHeaders.findIndex(h => h.includes(alias));
+      if (idx !== -1) return idx;
+    }
+    return fallbackIdx;
+  }
+
+  function extractProjectNumberFromTextOrName(text) {
+    const clean = String(text || '').trim();
+    const match200 = clean.match(/\b(200\d{3,}|2\d{5})\b/);
+    return match200 ? match200[1] : null;
+  }
+
+  function isValidHoursProjectCode(code, existingSet) {
+    const clean = String(code || '').trim();
+    if (!clean || clean.startsWith('#')) return false;
+    if (existingSet && existingSet.has(clean.toLowerCase())) return true;
+    return /^(200\d{3,}|2\d{5}|P\d{4,})$/i.test(clean);
+  }
+
+  function parseHoursRegistrationCsv(rows, delimiter, headerIdx, existingProjects = []) {
+    const headerRow = rows[headerIdx].map(normalizeHeaderToken);
+    const projectIdx = findColumnIndexExactFirst(headerRow, ['projectnummer', 'projectnr', 'projectid'], ['projectnummer', 'projectnr', 'projectid', 'project'], 0);
+    const urenIdx = findColumnIndexExactFirst(headerRow, ['uren', 'hours', 'aantaluren'], ['gewerkteuren', 'aantaluren'], 2);
+    const overurenIdx = findColumnIndexExactFirst(headerRow, ['overuren', 'overtime', 'meeruren'], ['overuren', 'overtime', 'meeruren'], -1);
+    let afdelingIdx = findColumnIndexExactFirst(headerRow, ['afdeling', 'categorie', 'type', 'werksoort'], ['afdeling', 'categorie', 'werksoort'], -1);
+
+    // In ISP Urenregistratie 2026-1.csv heeft kolom 5 geen header-tekst, maar waarden als Kantoor / Werkplaats
+    if (afdelingIdx === -1) {
+      const counts = {};
+      const scanLimit = Math.min(rows.length, headerIdx + 120);
+      for (let r = headerIdx + 1; r < scanLimit; r++) {
+        const cols = rows[r];
+        for (let c = 0; c < cols.length; c++) {
+          if (c === projectIdx || c === urenIdx || c === overurenIdx) continue;
+          const v = String(cols[c] || '').trim().toLowerCase();
+          if (v === 'werkplaats' || v === 'kantoor' || v === 'verkoop' || v === 'montage') {
+            counts[c] = (counts[c] || 0) + 1;
+          }
+        }
+      }
+      let bestCol = -1;
+      let bestCount = 0;
+      for (const [colStr, count] of Object.entries(counts)) {
+        if (count > bestCount) {
+          bestCount = count;
+          bestCol = Number(colStr);
+        }
+      }
+      afdelingIdx = bestCol;
+    }
+
+    const existingSet = new Set((existingProjects || []).map(p => String(p.projectnummer).toLowerCase()));
+    const byProject = new Map();
+    let rowsProcessed = 0;
+    let skippedInternalRows = 0;
+    let skippedErrorRows = 0;
+    let totalHours = 0;
+
+    for (let r = headerIdx + 1; r < rows.length; r++) {
+      const cols = rows[r];
+      const rawProj = stripUtf8Bom(cols[projectIdx] || '').trim();
+      const normProjToken = normalizeHeaderToken(rawProj);
+
+      if (!rawProj || rawProj.startsWith('#') || normProjToken === 'projectnummer') {
+        if (rawProj.startsWith('#')) skippedErrorRows++;
+        continue;
+      }
+
+      if (/^\d{1,3}$/.test(rawProj) && !existingSet.has(rawProj.toLowerCase())) {
+        skippedInternalRows++;
+        continue;
+      }
+
+      if (!isValidHoursProjectCode(rawProj, existingSet)) {
+        skippedErrorRows++;
+        continue;
+      }
+
+      const regularHours = urenIdx >= 0 ? Math.max(0, parseCleanNumber(cols[urenIdx], delimiter)) : 0;
+      const overtimeHours = overurenIdx >= 0 ? Math.max(0, parseCleanNumber(cols[overurenIdx], delimiter)) : 0;
+      const rowHours = regularHours + overtimeHours;
+      const dept = afdelingIdx >= 0 ? String(cols[afdelingIdx] || '').trim().toLowerCase() : '';
+
+      const key = rawProj.toLowerCase();
+      if (!byProject.has(key)) {
+        byProject.set(key, {
+          projectnummer: rawProj,
+          totalUren: 0,
+          werkplaatsUren: 0,
+          kantoorUren: 0,
+          overuren: 0,
+          rowCount: 0
+        });
+      }
+
+      const agg = byProject.get(key);
+      agg.totalUren += rowHours;
+      agg.overuren += overtimeHours;
+      agg.rowCount += 1;
+      if (dept.includes('werkplaats') || dept.includes('montage')) {
+        agg.werkplaatsUren += rowHours;
+      } else if (dept.includes('kantoor')) {
+        agg.kantoorUren += rowHours;
+      }
+
+      rowsProcessed++;
+      totalHours += rowHours;
+    }
+
+    const entries = Array.from(byProject.values()).map(entry => ({
+      ...entry,
+      totalUren: Math.round(entry.totalUren * 100) / 100,
+      werkplaatsUren: Math.round(entry.werkplaatsUren * 100) / 100,
+      kantoorUren: Math.round(entry.kantoorUren * 100) / 100,
+      overuren: Math.round(entry.overuren * 100) / 100
+    }));
+
+    if (entries.length === 0) {
+      throw new Error('Geen geldige projecturen gevonden in dit urenregistratie-bestand.');
+    }
+
+    return {
+      format: 'urenregistratie',
+      headerLineIndex: headerIdx,
+      entries,
+      rowsProcessed,
+      skippedInternalRows,
+      skippedErrorRows,
+      totalHours: Math.round(totalHours * 100) / 100
+    };
+  }
+
+  function parseBasicCalculationCsv(rows, delimiter, detailHeaderIdx, defaultRate, fileName = '') {
+    let detectedProjectNumber = null;
+    let detectedClient = null;
+    let detectedName = null;
+
+    const searchMaxRow = detailHeaderIdx !== -1 ? detailHeaderIdx : Math.min(rows.length, 15);
+
+    // 1. Zoek naar expliciet label Projectnummer / Klant / Projectnaam in metadata-rijen
+    for (let r = 0; r < rows.length; r++) {
+      const cols = rows[r];
+      for (let c = 0; c < cols.length; c++) {
+        const cell = stripUtf8Bom(cols[c] || '').trim();
+        if (!cell) continue;
+        const lower = cell.toLowerCase();
+
+        if (!detectedProjectNumber && /project\s*(nummer|nr|code|id)/i.test(lower)) {
+          const inlineMatch = cell.match(/(?:project\s*(?:nummer|nr|code|id)\s*[:=\-]?\s*)([A-Za-z0-9\-]+)/i);
+          if (inlineMatch && inlineMatch[1] && /\d{3,}/.test(inlineMatch[1])) {
+            detectedProjectNumber = inlineMatch[1].trim();
+          } else {
+            for (let nc = c + 1; nc < cols.length; nc++) {
+              const nextVal = String(cols[nc] || '').trim();
+              if (nextVal && /\d{3,}/.test(nextVal)) {
+                detectedProjectNumber = nextVal;
+                break;
+              }
+            }
+            if (!detectedProjectNumber && rows[r + 1]) {
+              const belowVal = String(rows[r + 1][c] || '').trim();
+              if (belowVal && /\d{3,}/.test(belowVal)) {
+                detectedProjectNumber = belowVal;
+              }
+            }
+          }
+        }
+
+        if (r < searchMaxRow) {
+          if (!detectedClient && /^(klant|opdrachtgever)\s*[:=\-]?$/i.test(lower)) {
+            for (let nc = c + 1; nc < cols.length; nc++) {
+              const nextVal = String(cols[nc] || '').trim();
+              if (nextVal) {
+                detectedClient = nextVal;
+                break;
+              }
+            }
+          }
+          if (!detectedName && /^(projectnaam|omschrijving|projectomschrijving)\s*[:=\-]?$/i.test(lower)) {
+            for (let nc = c + 1; nc < cols.length; nc++) {
+              const nextVal = String(cols[nc] || '').trim();
+              if (nextVal) {
+                detectedName = nextVal;
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Fallback: zoek 6-cijferig ISP-projectnummer (200xxx / 24xxxx) in metadata boven de calculatietabel of in bestandsnaam
+    if (!detectedProjectNumber) {
+      for (let r = 0; r < searchMaxRow && !detectedProjectNumber; r++) {
+        for (let c = 0; c < Math.min(rows[r].length, 6); c++) {
+          const val = stripUtf8Bom(rows[r][c] || '').trim();
+          if (/^(200\d{3,}|2\d{5}|P\d{5,})$/i.test(val)) {
+            detectedProjectNumber = val;
+            break;
+          }
+        }
+      }
+    }
+    if (!detectedProjectNumber && fileName) {
+      detectedProjectNumber = extractProjectNumberFromTextOrName(fileName);
+    }
+
+    // 2. Lees samenvattingsblok (Werkplaatsuren / Kantooruren / Materialen) bovenaan
+    let summaryWerkplaatsUren = 0;
+    let summaryKantoorUren = 0;
+    let summaryTotalVerkoop = 0;
+    for (let r = 0; r < searchMaxRow; r++) {
+      const cols = rows[r];
+      const typeCode = String(cols[5] || '').trim();
+      const label = String(cols[6] || '').trim().toLowerCase();
+      const salesCell = parseCleanNumber(cols[7], delimiter);
+      const hoursCell = parseCleanNumber(cols[8], delimiter);
+
+      if (typeCode === '1' || label.includes('werkplaatsuren')) {
+        if (hoursCell > 0) summaryWerkplaatsUren = hoursCell;
+        if (salesCell > 0) summaryTotalVerkoop += salesCell;
+      } else if (typeCode === '2' || label.includes('kantooruren')) {
+        if (hoursCell > 0) summaryKantoorUren = hoursCell;
+        if (salesCell > 0) summaryTotalVerkoop += salesCell;
+      } else if (typeCode === '3' || typeCode === '4' || typeCode === '5' || label.includes('materialen')) {
+        if (salesCell > 0) summaryTotalVerkoop += salesCell;
+      }
+    }
+
+    // 3. Lees detailregels onder 'Positie;Type;Aantal;Unit / Type;Prijs p/st;Subtotaal...'
+    let begroteWerkplaatsUren = 0;
+    let begroteKantoorUren = 0;
+    let arbeidBegrootKostprijs = 0;
+    let arbeidVerkoop = 0;
+    let begrootMateriaal = 0;
+    let materiaalVerkoop = 0;
+    let bottomTotalVerkoop = 0;
+    let lineCount = 0;
+
+    if (detailHeaderIdx !== -1) {
+      const headerNorm = rows[detailHeaderIdx].map(normalizeHeaderToken);
+      const typeIdx = findColumnIndexExactFirst(headerNorm, ['type'], ['type'], 2);
+      const aantalIdx = findColumnIndexExactFirst(headerNorm, ['aantal'], ['aantal'], 3);
+      const unitIdx = findColumnIndexExactFirst(headerNorm, ['unittype', 'omschrijving', 'unit'], ['unit', 'omschrijving'], 4);
+      const prijsStukIdx = findColumnIndexExactFirst(headerNorm, ['prijspst', 'verkoopprijs'], ['prijspst'], 5);
+      const subtotaalIdx = findColumnIndexExactFirst(headerNorm, ['subtotaal'], ['subtotaal'], 6);
+      const kostprijsLijnIdx = findColumnIndexExactFirst(headerNorm, ['kostprijslijn'], ['kostprijslijn'], 16);
+      const kostprijsIdx = findColumnIndexExactFirst(headerNorm, ['kostprijs'], [], 14);
+
+      for (let r = detailHeaderIdx + 1; r < rows.length; r++) {
+        const cols = rows[r];
+        const rawType = String(cols[typeIdx] || '').trim();
+        const rawAantal = String(cols[aantalIdx] || '').trim();
+        const rawUnit = String(cols[unitIdx] || '').trim();
+        const rowSubtotaal = subtotaalIdx >= 0 ? parseCleanNumber(cols[subtotaalIdx], delimiter) : 0;
+
+        // Totaalregel onderaan (bijv. regel 61: ;;;;;;€ 5.827;;...)
+        if (!rawType && !rawAantal && !rawUnit && rowSubtotaal > 0) {
+          bottomTotalVerkoop = rowSubtotaal;
+          continue;
+        }
+
+        const typeNum = parseInt(rawType, 10);
+        if (isNaN(typeNum) || typeNum < 1 || typeNum > 5) continue;
+
+        const aantal = parseCleanNumber(rawAantal, delimiter);
+        const prijsStuk = prijsStukIdx >= 0 ? parseCleanNumber(cols[prijsStukIdx], delimiter) : 0;
+        const unitKost = kostprijsIdx >= 0 ? parseCleanNumber(cols[kostprijsIdx], delimiter) : 0;
+        const rawKostLijn = kostprijsLijnIdx >= 0 ? String(cols[kostprijsLijnIdx] || '').trim() : '';
+        const kostLijn = rawKostLijn && !rawKostLijn.startsWith('#')
+          ? parseCleanNumber(rawKostLijn, delimiter)
+          : (aantal || 1) * unitKost;
+        const lineVerkoop = rowSubtotaal > 0 ? rowSubtotaal : (aantal || 1) * prijsStuk;
+
+        if (aantal === 0 && kostLijn === 0 && lineVerkoop === 0 && !rawUnit) continue;
+
+        lineCount++;
+        if (typeNum === 1) {
+          begroteWerkplaatsUren += aantal;
+          arbeidBegrootKostprijs += kostLijn;
+          arbeidVerkoop += lineVerkoop;
+        } else if (typeNum === 2) {
+          begroteKantoorUren += aantal;
+          arbeidBegrootKostprijs += kostLijn;
+          arbeidVerkoop += lineVerkoop;
+        } else {
+          begrootMateriaal += kostLijn;
+          materiaalVerkoop += lineVerkoop;
+        }
+      }
+    }
+
+    if (begroteWerkplaatsUren === 0 && summaryWerkplaatsUren > 0) {
+      begroteWerkplaatsUren = summaryWerkplaatsUren;
+    }
+    if (begroteKantoorUren === 0 && summaryKantoorUren > 0) {
+      begroteKantoorUren = summaryKantoorUren;
+    }
+
+    const begroteUren = Math.round((begroteWerkplaatsUren + begroteKantoorUren) * 100) / 100;
+    const finalMateriaal = Math.round(begrootMateriaal * 100) / 100;
+    const computedRate = (begroteUren > 0 && arbeidBegrootKostprijs > 0)
+      ? Math.round((arbeidBegrootKostprijs / begroteUren) * 100) / 100
+      : defaultRate;
+
+    let verkoopprijs = bottomTotalVerkoop;
+    if (verkoopprijs <= 0 && summaryTotalVerkoop > 0) verkoopprijs = summaryTotalVerkoop;
+    if (verkoopprijs <= 0) verkoopprijs = Math.round((arbeidVerkoop + materiaalVerkoop) * 100) / 100;
+
+    return {
+      format: 'basic_calculation',
+      detectedProjectNumber,
+      detectedClient,
+      detectedName,
+      begroteUren,
+      begroteWerkplaatsUren: Math.round(begroteWerkplaatsUren * 100) / 100,
+      begroteKantoorUren: Math.round(begroteKantoorUren * 100) / 100,
+      begrootMateriaal: finalMateriaal,
+      arbeidBegrootKostprijs: Math.round(arbeidBegrootKostprijs * 100) / 100,
+      tarief: computedRate,
+      verkoopprijs: Math.round(verkoopprijs * 100) / 100,
+      lineCount
+    };
+  }
+
+  function analyzeCsvImport(text, defaultRate = DEFAULT_GLOBAL_RATE, options = {}) {
+    const cleanedText = stripUtf8Bom(text);
+    const lines = String(cleanedText || '')
       .split(/\r?\n/)
       .map(l => l.trim())
       .filter(l => l.length > 0);
@@ -565,87 +1137,79 @@
       throw new Error('Het bestand of tekstveld bevat geen geldige header én datarijen.');
     }
 
-    const headerLine = lines[0];
-    let delimiter = ',';
-    const semiCount = (headerLine.match(/;/g) || []).length;
-    const tabCount = (headerLine.match(/\t/g) || []).length;
-    const commaCount = (headerLine.match(/,/g) || []).length;
+    const delimiter = detectCsvDelimiter(lines);
+    const rows = lines.map(line => splitCsvRow(line, delimiter));
 
-    if (semiCount >= commaCount && semiCount >= tabCount && semiCount > 0) {
-      delimiter = ';';
-    } else if (tabCount > commaCount && tabCount > semiCount) {
-      delimiter = '\t';
+    // Check 1: ISP Urenregistratie CSV (bijv. regel 8: Projectnummer;Datum;uren;overuren;weeknummer)
+    const maxHeaderScan = Math.min(rows.length, 30);
+    for (let r = 0; r < maxHeaderScan; r++) {
+      const norm = rows[r].map(normalizeHeaderToken);
+      const hasProjNum = norm.some(h => h === 'projectnummer' || h === 'projectnr' || h === 'projectid');
+      const hasHours = norm.some(h => h === 'uren' || h === 'hours' || h === 'aantaluren');
+      const hasProjectMeta = norm.some(h => h === 'klant' || h === 'projectnaam' || h === 'begroteuren');
+      if (hasProjNum && hasHours && !hasProjectMeta) {
+        return parseHoursRegistrationCsv(rows, delimiter, r, options.existingProjects || AppState.projects);
+      }
     }
 
-    const splitRow = rowStr => {
-      const result = [];
-      let current = '';
-      let inQuotes = false;
-      for (let i = 0; i < rowStr.length; i++) {
-        const ch = rowStr[i];
-        if (ch === '"') {
-          inQuotes = !inQuotes;
-        } else if (ch === delimiter && !inQuotes) {
-          result.push(current.trim());
-          current = '';
-        } else {
-          current += ch;
-        }
+    // Check 2: Basic calculation ISP CSV (Positie;Type;Aantal;Unit / Type;Prijs p/st;Subtotaal / Werkplaatsuren / Margeberekening)
+    let detailHeaderIdx = -1;
+    let hasCalcMarkers = false;
+    for (let r = 0; r < Math.min(rows.length, 30); r++) {
+      const norm = rows[r].map(normalizeHeaderToken);
+      if (norm.includes('type') && norm.includes('aantal') && (norm.includes('subtotaal') || norm.includes('prijspst') || norm.includes('kostprijs'))) {
+        detailHeaderIdx = r;
+        break;
       }
-      result.push(current.trim());
-      return result;
-    };
-
-    const rawHeaders = splitRow(lines[0]).map(h => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
-
-    const findColIndex = (aliases, fallbackIdx) => {
-      for (const alias of aliases) {
-        const idx = rawHeaders.findIndex(h => h.includes(alias));
-        if (idx !== -1) return idx;
+      if (norm.includes('werkplaatsuren') || norm.includes('margeberekening') || norm.includes('gewenstemarge')) {
+        hasCalcMarkers = true;
       }
-      return fallbackIdx;
-    };
+    }
+    if (detailHeaderIdx !== -1 || hasCalcMarkers) {
+      return parseBasicCalculationCsv(rows, delimiter, detailHeaderIdx, defaultRate, options.fileName || '');
+    }
 
+    // Check 3: Standaard ISP projecttabel CSV (Projectnummer;Klant;Projectnaam;...)
+    let tableHeaderIdx = 0;
+    for (let r = 0; r < Math.min(rows.length, 20); r++) {
+      const norm = rows[r].map(normalizeHeaderToken);
+      if (norm.some(h => h === 'projectnummer' || h === 'projectid' || h === 'klant' || h === 'begroteuren')) {
+        tableHeaderIdx = r;
+        break;
+      }
+    }
+
+    const rawHeaders = rows[tableHeaderIdx].map(normalizeHeaderToken);
     const colMap = {
-      projectnummer: findColIndex(['projectnummer', 'projectid', 'id', 'nummer', 'code'], 0),
-      klant: findColIndex(['klant', 'klantnaam', 'opdrachtgever', 'client'], 1),
-      projectnaam: findColIndex(['projectnaam', 'omschrijving', 'naam', 'project'], 2),
-      status: findColIndex(['status', 'projectfase', 'fase'], 3),
-      begroteUren: findColIndex(['begroteuren', 'voorcalculatieuren', 'urenvoor', 'geplandeuren'], 4),
-      werkelijkeUren: findColIndex(['werkelijkeuren', 'gemaakteuren', 'urennacalc', 'urenwerkelijk'], 5),
-      begrootMateriaal: findColIndex(['begrootmateriaal', 'materiaalbegroot', 'inkoopbegroot'], 6),
-      werkelijkMateriaal: findColIndex(['werkelijkmateriaal', 'materiaalwerkelijk', 'werkelijkeinkoop', 'inkoopwerkelijk'], 7),
-      tarief: findColIndex(['tarief', 'uurtarief', 'rate'], 8),
-      bestelstatus: findColIndex(['bestelstatus', 'leverancier', 'levertijd', 'toeleverancier'], 9)
-    };
-
-    const parseCleanNumber = val => {
-      if (val === undefined || val === null) return 0;
-      let s = String(val).replace(/[€\s]/g, '').trim();
-      if (s.includes(',') && s.includes('.')) {
-        s = s.replace(/\./g, '').replace(',', '.');
-      } else if (s.includes(',')) {
-        s = s.replace(',', '.');
-      }
-      const n = parseFloat(s);
-      return isNaN(n) ? 0 : n;
+      projectnummer: findColumnIndexExactFirst(rawHeaders, ['projectnummer', 'projectid'], ['projectnummer', 'projectid', 'nummer', 'code'], 0),
+      klant: findColumnIndexExactFirst(rawHeaders, ['klant', 'klantnaam', 'opdrachtgever'], ['klant', 'opdrachtgever', 'client'], 1),
+      projectnaam: findColumnIndexExactFirst(rawHeaders, ['projectnaam', 'omschrijving', 'omschrijvingproject'], ['projectnaam', 'omschrijving', 'naam'], 2),
+      status: findColumnIndexExactFirst(rawHeaders, ['status', 'projectfase', 'fase'], ['status', 'fase'], 3),
+      begroteUren: findColumnIndexExactFirst(rawHeaders, ['begroteuren', 'voorcalculatieuren'], ['begroteuren', 'voorcalculatieuren', 'geplandeuren'], 4),
+      werkelijkeUren: findColumnIndexExactFirst(rawHeaders, ['werkelijkeuren', 'gemaakteuren'], ['werkelijkeuren', 'gemaakteuren', 'urenwerkelijk'], 5),
+      begrootMateriaal: findColumnIndexExactFirst(rawHeaders, ['begrootmateriaal', 'materiaalbegroot'], ['begrootmateriaal', 'materiaalbegroot', 'inkoopbegroot'], 6),
+      werkelijkMateriaal: findColumnIndexExactFirst(rawHeaders, ['werkelijkmateriaal', 'materiaalwerkelijk'], ['werkelijkmateriaal', 'materiaalwerkelijk', 'inkoopwerkelijk'], 7),
+      tarief: findColumnIndexExactFirst(rawHeaders, ['tarief', 'uurtarief'], ['tarief', 'uurtarief', 'rate'], 8),
+      bestelstatus: findColumnIndexExactFirst(rawHeaders, ['bestelstatus', 'leverancier'], ['bestelstatus', 'leverancier', 'levertijd'], 9),
+      verkoopprijs: findColumnIndexExactFirst(rawHeaders, ['verkoopprijs', 'offerteprijs'], ['verkoopprijs', 'offerteprijs', 'verkoop'], -1)
     };
 
     const importedProjects = [];
-    for (let i = 1; i < lines.length; i++) {
-      const cols = splitRow(lines[i]);
+    for (let i = tableHeaderIdx + 1; i < rows.length; i++) {
+      const cols = rows[i];
       if (cols.length < 2) continue;
 
-      const pNum = cols[colMap.projectnummer] || String(ISP_START_PROJECT_NUMBER + AppState.projects.length + i - 1);
+      const pNum = stripUtf8Bom(cols[colMap.projectnummer] || '').trim() || String(ISP_START_PROJECT_NUMBER + (AppState.projects?.length || 0) + i);
       const pClient = cols[colMap.klant] || 'Onbekende Klant';
       const pName = cols[colMap.projectnaam] || `Omschrijving project ${i}`;
       const pStatusRaw = cols[colMap.status] || 'Lopend';
-      const pBegroteUren = parseCleanNumber(cols[colMap.begroteUren]);
-      const pWerkelijkeUren = parseCleanNumber(cols[colMap.werkelijkeUren]);
-      const pBegrootMat = parseCleanNumber(cols[colMap.begrootMateriaal]);
-      const pWerkelijkMat = parseCleanNumber(cols[colMap.werkelijkMateriaal]);
-      const pTarief = parseCleanNumber(cols[colMap.tarief]) || defaultRate;
+      const pBegroteUren = parseCleanNumber(cols[colMap.begroteUren], delimiter);
+      const pWerkelijkeUren = parseCleanNumber(cols[colMap.werkelijkeUren], delimiter);
+      const pBegrootMat = parseCleanNumber(cols[colMap.begrootMateriaal], delimiter);
+      const pWerkelijkMat = parseCleanNumber(cols[colMap.werkelijkMateriaal], delimiter);
+      const pTarief = parseCleanNumber(cols[colMap.tarief], delimiter) || defaultRate;
       const pBestel = cols[colMap.bestelstatus] || 'Op schema';
+      const pVerkoop = colMap.verkoopprijs >= 0 ? parseCleanNumber(cols[colMap.verkoopprijs], delimiter) : undefined;
 
       importedProjects.push(
         normalizeProjectObject({
@@ -658,6 +1222,7 @@
           begrootMateriaal: pBegrootMat,
           werkelijkMateriaal: pWerkelijkMat,
           tarief: pTarief,
+          verkoopprijs: pVerkoop,
           bestelstatus: pBestel
         }, defaultRate, i)
       );
@@ -667,79 +1232,236 @@
       throw new Error('Geen geldige projectrijen gevonden om te importeren.');
     }
 
-    return importedProjects;
+    return {
+      format: 'project_table',
+      projects: importedProjects
+    };
   }
-function parseUrenregistratieCsv(text) {
-    const lines = String(text || '').split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
-    let totalUpdated = 0;
-    
-    // Bepaal het scheidingsteken (meestal ; in Nederlandse Excel CSV's)
-    const delimiter = (lines[0].match(/;/g) || []).length > (lines[0].match(/,/g) || []).length ? ';' : ',';
 
-    // Vind de header-rij (die begint met Projectnummer)
-    const headerIdx = lines.findIndex(line => line.toLowerCase().includes('projectnummer'));
-    if (headerIdx === -1) throw new Error('Kan de header "Projectnummer" niet vinden in dit bestand.');
-
-    // Loop door alle datarijen onder de header
-    for (let i = headerIdx + 1; i < lines.length; i++) {
-      const cols = lines[i].split(delimiter);
-      if (cols.length < 3) continue;
-
-      const pNum = String(cols[0]).trim();
-      // Vervang komma door punt voor decimalen en maak er een getal van
-      const uren = parseFloat(String(cols[2]).replace(',', '.')) || 0;
-      const overuren = parseFloat(String(cols[3] || '0').replace(',', '.')) || 0;
-      const totaalUrenRij = uren + overuren;
-
-      if (pNum && totaalUrenRij > 0) {
-        const project = AppState.projects.find(p => p.projectnummer === pNum);
-        if (project) {
-          project.werkelijkeUren = totaalUrenRij;
-          totalUpdated++;
-        }
-      }
+  function parseFlexibleCsv(text, defaultRate) {
+    const analysis = analyzeCsvImport(text, defaultRate);
+    if (analysis.format === 'project_table') {
+      return analysis.projects;
     }
-    
-    if (totalUpdated === 0) throw new Error('Geen uren gevonden voor bekende projectnummers.');
-    return totalUpdated;
-  }
-
-  function parseCalculatieCsv(text, targetProject) {
-    if (!targetProject) throw new Error('Selecteer eerst een project op het dashboard voordat je een calculatie importeert.');
-    
-    const lines = String(text || '').split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
-    const delimiter = (lines[0].match(/;/g) || []).length > (lines[0].match(/,/g) || []).length ? ';' : ',';
-    
-    let urenGevonden = false;
-    let materiaalGevonden = false;
-
-    lines.forEach(line => {
-      const cols = line.split(delimiter).map(c => c.trim());
-      
-      // Zoek naar de rij met "Werkplaatsuren" of "Manuren"
-      if (line.toLowerCase().includes('werkplaatsuren') || line.toLowerCase().includes('manuren')) {
-        // Zoek het eerste logische getal in deze rij (bijv. 38)
-        const uren = cols.map(c => parseFloat(c.replace(',', '.'))).find(n => !isNaN(n) && n > 0 && n < 10000);
-        if (uren) {
-          targetProject.begroteUren = uren;
-          urenGevonden = true;
-        }
-      }
-      
-      // Zoek naar de rij met "Materialen"
-      if (line.toLowerCase().includes('materialen')) {
-        const mat = cols.map(c => parseFloat(c.replace(',', '.'))).find(n => !isNaN(n) && n > 0);
-        if (mat) {
-          targetProject.begrootMateriaal = mat;
-          materiaalGevonden = true;
-        }
-      }
-    });
-
-    if (!urenGevonden && !materiaalGevonden) {
-      throw new Error('Kon geen "Werkplaatsuren" of "Materialen" bedragen vinden in de CSV.');
+    if (analysis.format === 'basic_calculation') {
+      return [
+        normalizeProjectObject({
+          projectnummer: analysis.detectedProjectNumber || getNextIspProjectNumber(AppState.projects),
+          klant: analysis.detectedClient || 'Nieuwe Klant',
+          projectnaam: analysis.detectedName || 'Voorcalculatie import',
+          begroteUren: analysis.begroteUren,
+          begrootMateriaal: analysis.begrootMateriaal,
+          tarief: analysis.tarief,
+          verkoopprijs: analysis.verkoopprijs
+        }, defaultRate)
+      ];
     }
+    return analysis.entries.map(entry =>
+      normalizeProjectObject({
+        projectnummer: entry.projectnummer,
+        klant: 'ISP Klant',
+        projectnaam: 'Project uit urenregistratie',
+        werkelijkeUren: entry.totalUren,
+        werkelijkeWerkplaatsUren: entry.werkplaatsUren,
+        werkelijkeKantoorUren: entry.kantoorUren,
+        werkelijkeOveruren: entry.overuren
+      }, defaultRate)
+    );
   }
+
+  function applyCsvImport(analysis, options = {}) {
+    const targetProjectNumber = String(options.targetProjectNumber || '').trim();
+    const replaceAll = Boolean(options.replaceAll);
+    const defaultRate = AppState.globalHourlyRate;
+
+    if (analysis.format === 'basic_calculation') {
+      const targetNum = analysis.detectedProjectNumber || targetProjectNumber;
+      if (!targetNum) {
+        throw new Error('Geen vast projectnummer in het bestand gevonden. Vul een projectnummer in (bijv. 200360) of zet "Projectnummer;200360" in het CSV-bestand.');
+      }
+
+      const existingIdx = AppState.projects.findIndex(
+        p => p.projectnummer.toLowerCase() === targetNum.toLowerCase()
+      );
+
+      let savedProject;
+      let modeLabel;
+      if (existingIdx !== -1) {
+        const existing = AppState.projects[existingIdx];
+        savedProject = normalizeProjectObject({
+          ...existing,
+          klant: analysis.detectedClient || existing.klant,
+          projectnaam: analysis.detectedName || existing.projectnaam,
+          begroteUren: analysis.begroteUren,
+          begroteWerkplaatsUren: analysis.begroteWerkplaatsUren,
+          begroteKantoorUren: analysis.begroteKantoorUren,
+          begrootMateriaal: analysis.begrootMateriaal,
+          tarief: analysis.tarief,
+          verkoopprijs: analysis.verkoopprijs,
+          calculatieLaatstGeimporteerd: new Date().toISOString()
+        }, defaultRate);
+        AppState.projects[existingIdx] = savedProject;
+        modeLabel = 'bijgewerkt';
+      } else {
+        savedProject = normalizeProjectObject({
+          projectnummer: targetNum,
+          klant: analysis.detectedClient || 'Nieuwe Klant',
+          projectnaam: analysis.detectedName || 'Project uit voorcalculatie',
+          status: 'Lopend',
+          begroteUren: analysis.begroteUren,
+          begroteWerkplaatsUren: analysis.begroteWerkplaatsUren,
+          begroteKantoorUren: analysis.begroteKantoorUren,
+          werkelijkeUren: 0,
+          begrootMateriaal: analysis.begrootMateriaal,
+          werkelijkMateriaal: 0,
+          tarief: analysis.tarief,
+          verkoopprijs: analysis.verkoopprijs,
+          bestelstatus: 'Op schema - Geïmporteerd uit calculatie',
+          calculatieLaatstGeimporteerd: new Date().toISOString()
+        }, defaultRate);
+        AppState.projects.unshift(savedProject);
+        modeLabel = 'aangemaakt';
+      }
+
+      AppState.selectedProjectId = savedProject.projectnummer;
+      AppState.trackRecentProject(savedProject.projectnummer);
+      AppState.saveProjects();
+
+      return {
+        format: 'basic_calculation',
+        selectedProjectId: savedProject.projectnummer,
+        updatedCount: existingIdx !== -1 ? 1 : 0,
+        createdCount: existingIdx === -1 ? 1 : 0,
+        message: `Voorcalculatie gekoppeld aan project ${savedProject.projectnummer} (${modeLabel}): ${formatNumber(savedProject.begroteUren)} begrote uren, ${formatEuro(savedProject.begrootMateriaal)} begroot materiaal, verkoopprijs ${formatEuro(savedProject.verkoopprijs)}.`
+      };
+    }
+
+    if (analysis.format === 'urenregistratie') {
+      const existingByKey = new Map();
+      AppState.projects.forEach(p => {
+        existingByKey.set(String(p.projectnummer).toLowerCase(), p);
+      });
+
+      let updatedCount = 0;
+      let createdCount = 0;
+      const mergedProjects = [];
+      const seenKeys = new Set();
+
+      analysis.entries.forEach((entry, idx) => {
+        const key = entry.projectnummer.toLowerCase();
+        seenKeys.add(key);
+        const existing = existingByKey.get(key);
+
+        if (existing) {
+          updatedCount++;
+          mergedProjects.push(
+            normalizeProjectObject({
+              ...existing,
+              werkelijkeUren: entry.totalUren,
+              werkelijkeWerkplaatsUren: entry.werkplaatsUren,
+              werkelijkeKantoorUren: entry.kantoorUren,
+              werkelijkeOveruren: entry.overuren,
+              urenLaatstGeimporteerd: new Date().toISOString()
+            }, defaultRate, idx)
+          );
+        } else {
+          createdCount++;
+          mergedProjects.push(
+            normalizeProjectObject({
+              projectnummer: entry.projectnummer,
+              klant: 'ISP Klant',
+              projectnaam: 'Project uit urenregistratie',
+              status: 'Lopend',
+              begroteUren: 0,
+              werkelijkeUren: entry.totalUren,
+              werkelijkeWerkplaatsUren: entry.werkplaatsUren,
+              werkelijkeKantoorUren: entry.kantoorUren,
+              werkelijkeOveruren: entry.overuren,
+              begrootMateriaal: 0,
+              werkelijkMateriaal: 0,
+              tarief: defaultRate,
+              verkoopprijs: 0,
+              bestelstatus: 'Op schema - Uren geïmporteerd',
+              urenLaatstGeimporteerd: new Date().toISOString()
+            }, defaultRate, idx)
+          );
+        }
+      });
+
+      if (replaceAll) {
+        AppState.projects = mergedProjects.sort(
+          (a, b) => extractProjectNumberInt(b.projectnummer) - extractProjectNumberInt(a.projectnummer)
+        );
+      } else {
+        const updatedMap = new Map(mergedProjects.map(p => [p.projectnummer.toLowerCase(), p]));
+        const nextList = AppState.projects.map(p => updatedMap.get(p.projectnummer.toLowerCase()) || p);
+        mergedProjects.forEach(p => {
+          if (!existingByKey.has(p.projectnummer.toLowerCase())) {
+            nextList.unshift(p);
+          }
+        });
+        AppState.projects = nextList;
+      }
+
+      // Behoud het gekozen of actieve projectnummer als dat in de import zit
+      let nextSelected = AppState.projects[0]?.projectnummer;
+      if (targetProjectNumber && seenKeys.has(targetProjectNumber.toLowerCase())) {
+        const found = AppState.projects.find(p => p.projectnummer.toLowerCase() === targetProjectNumber.toLowerCase());
+        if (found) nextSelected = found.projectnummer;
+      } else if (AppState.selectedProjectId && seenKeys.has(String(AppState.selectedProjectId).toLowerCase())) {
+        const found = AppState.projects.find(p => p.projectnummer.toLowerCase() === String(AppState.selectedProjectId).toLowerCase());
+        if (found) nextSelected = found.projectnummer;
+      }
+
+      AppState.selectedProjectId = nextSelected;
+      if (nextSelected) AppState.trackRecentProject(nextSelected);
+      AppState.saveProjects();
+
+      const skippedText = analysis.skippedInternalRows > 0
+        ? ` (${analysis.skippedInternalRows} interne uurregels 100-199 overgeslagen)`
+        : '';
+
+      return {
+        format: 'urenregistratie',
+        selectedProjectId: nextSelected,
+        updatedCount,
+        createdCount,
+        message: `Urenregistratie verwerkt: ${updatedCount} bestaande projecten bijgewerkt en ${createdCount} nieuwe projecten toegevoegd (${formatNumber(analysis.totalHours)} uur totaal)${skippedText}.`
+      };
+    }
+
+    // Standaard project_table format
+    const imported = analysis.projects;
+    if (replaceAll) {
+      AppState.projects = imported;
+    } else {
+      imported.forEach(imp => {
+        const existingIdx = AppState.projects.findIndex(
+          p => p.projectnummer.toLowerCase() === imp.projectnummer.toLowerCase()
+        );
+        if (existingIdx !== -1) {
+          AppState.projects[existingIdx] = imp;
+        } else {
+          AppState.projects.unshift(imp);
+        }
+      });
+    }
+
+    const focusNum = (targetProjectNumber && AppState.projects.find(p => p.projectnummer.toLowerCase() === targetProjectNumber.toLowerCase())?.projectnummer)
+      || imported[0].projectnummer;
+    AppState.selectedProjectId = focusNum;
+    AppState.trackRecentProject(focusNum);
+    AppState.saveProjects();
+
+    return {
+      format: 'project_table',
+      selectedProjectId: focusNum,
+      updatedCount: imported.length,
+      createdCount: 0,
+      message: `Succesvol ${imported.length} project(en) geïmporteerd!`
+    };
+  }
+
   function exportCalculatedCsv() {
     const headers = [
       'ISP_Projectbenaming',
@@ -748,6 +1470,7 @@ function parseUrenregistratieCsv(text) {
       'Omschrijving_Project',
       'Status',
       'Statusbadge',
+      'Verkoopprijs',
       'BegroteUren',
       'WerkelijkeUren',
       'VerschilUren',
@@ -759,6 +1482,7 @@ function parseUrenregistratieCsv(text) {
       'TotaalBegrootBudget',
       'TotaleWerkelijkeKosten',
       'VerschilBudgetEuro',
+      'GerealiseerdeMargeEuro',
       'AfwijkingsPercentage',
       'Bestelstatus',
       'LeveranciersVertraging'
@@ -780,6 +1504,7 @@ function parseUrenregistratieCsv(text) {
         p.projectnaam,
         p.status,
         `${m.statusLevel} - ${m.statusLabel}`,
+        m.verkoopprijs.toFixed(2),
         m.begroteUren,
         m.werkelijkeUren,
         m.verschilUren,
@@ -791,6 +1516,7 @@ function parseUrenregistratieCsv(text) {
         m.totaalBegrootBudget.toFixed(2),
         m.totaleWerkelijkeKosten.toFixed(2),
         m.verschilBudget.toFixed(2),
+        m.gerealiseerdeMargeEuro.toFixed(2),
         m.afwijkingBudgetPct.toFixed(2) + '%',
         p.bestelstatus,
         m.heeftVertraging ? 'JA' : 'NEE'
@@ -809,16 +1535,16 @@ function parseUrenregistratieCsv(text) {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    showToast('CSV-bestand (met 200001+ structuur) gedownload voor Excel!');
+    showToast('CSV-bestand (incl. verkoopprijs) gedownload voor Excel!');
   }
 
   function downloadSampleTemplateCsv() {
     const next1 = getNextIspProjectNumber(AppState.projects);
     const next2 = String(parseInt(next1, 10) + 1);
     const sample = [
-      'Projectnummer;Klant;Projectnaam;Status;BegroteUren;WerkelijkeUren;BegrootMateriaal;WerkelijkMateriaal;Tarief;Bestelstatus',
-      `${next1};Maasvlakte Terminals;RVS Schakelkast & PLC Ombouw;Lopend;140;128;12500;11900;65;Op schema - Siemens PLC geleverd`,
-      `${next2};Offshore Heavy Lift;Lierenframe Revisie & NDT Inspectie;Lopend;220;238;19000;19400;65;Kritieke vertraging onderdeel: SKF Hoofdlager (+5 werkdagen)`
+      'Projectnummer;Klant;Projectnaam;Status;BegroteUren;WerkelijkeUren;BegrootMateriaal;WerkelijkMateriaal;Tarief;Verkoopprijs;Bestelstatus',
+      `${next1};Maasvlakte Terminals;RVS Schakelkast & PLC Ombouw;Lopend;140;128;12500;11900;65;32314;Op schema - Siemens PLC geleverd`,
+      `${next2};Offshore Heavy Lift;Lierenframe Revisie & NDT Inspectie;Lopend;220;238;19000;19400;65;49817;Kritieke vertraging onderdeel: SKF Hoofdlager (+5 werkdagen)`
     ].join('\r\n');
 
     const blob = new Blob(['\uFEFF' + sample], { type: 'text/csv;charset=utf-8;' });
@@ -1030,6 +1756,19 @@ function parseUrenregistratieCsv(text) {
     const viewDash = document.getElementById('viewProjectDashboard');
     const viewMorn = document.getElementById('viewMorningMeeting');
 
+    const targetMap = {
+      home: { el: viewHome, url: 'index.html' },
+      dashboard: { el: viewDash, url: 'dashboard.html' },
+      morning: { el: viewMorn, url: 'ochtendoverleg.html' }
+    };
+
+    if (targetMap[tabName] && !targetMap[tabName].el) {
+      AppState.saveProjects();
+      AppState.saveUiPreferences();
+      window.location.href = targetMap[tabName].url;
+      return;
+    }
+
     if (viewHome) viewHome.classList.toggle('hidden', tabName !== 'home');
     if (viewDash) viewDash.classList.toggle('hidden', tabName !== 'dashboard');
     if (viewMorn) viewMorn.classList.toggle('hidden', tabName !== 'morning');
@@ -1090,9 +1829,9 @@ function parseUrenregistratieCsv(text) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  function syncCurrentFormToProjectAndRender(populateInputs = false) {
+  function syncCurrentFormToProjectAndRender(populateInputs = false, allowIdChange = true) {
     const proj = AppState.getCurrentProject();
-    if (!proj) return;
+    if (!proj) return false;
 
     const idInput = document.getElementById('inputProjectId');
     const nameInput = document.getElementById('inputProjectName');
@@ -1102,24 +1841,49 @@ function parseUrenregistratieCsv(text) {
     const rateInput = document.getElementById('inputHourlyRate');
     const plMatInput = document.getElementById('inputPlannedMaterial');
     const actMatInput = document.getElementById('inputActualMaterial');
+    const salesPriceInput = document.getElementById('inputSalesPrice');
     const supInput = document.getElementById('inputSupplierStatus');
     const supDelayInput = document.getElementById('inputSupplierDelayFlag');
 
-    const newId = idInput?.value.trim() || proj.projectnummer;
+    const oldId = proj.projectnummer;
+    let newId = oldId;
+    if (allowIdChange && idInput) {
+      const candidateId = idInput.value.trim();
+      if (candidateId && candidateId !== oldId) {
+        const duplicate = AppState.projects.some(
+          p => p !== proj && p.projectnummer.toLowerCase() === candidateId.toLowerCase()
+        );
+        if (duplicate) {
+          showToast(`Projectnummer ${candidateId} bestaat al! Kies een uniek nummer.`);
+          idInput.value = oldId;
+          return false;
+        }
+        newId = candidateId;
+      }
+    }
+
     proj.projectnummer = newId;
-    proj.projectnaam = nameInput?.value.trim() || proj.projectnaam;
-    proj.klant = clientInput?.value.trim() || proj.klant;
-    proj.begroteUren = Math.max(0, parseFloat(plHoursInput?.value) || 0);
-    proj.werkelijkeUren = Math.max(0, parseFloat(actHoursInput?.value) || 0);
-    proj.tarief = Math.max(0, parseFloat(rateInput?.value) || AppState.globalHourlyRate);
-    proj.begrootMateriaal = Math.max(0, parseFloat(plMatInput?.value) || 0);
-    proj.werkelijkMateriaal = Math.max(0, parseFloat(actMatInput?.value) || 0);
+    if (nameInput && nameInput.value.trim()) proj.projectnaam = nameInput.value.trim();
+    if (clientInput && clientInput.value.trim()) proj.klant = clientInput.value.trim();
+    proj.begroteUren = Math.max(0, parseNumericInput(plHoursInput?.value, proj.begroteUren));
+    proj.werkelijkeUren = Math.max(0, parseNumericInput(actHoursInput?.value, proj.werkelijkeUren));
+    proj.tarief = Math.max(0, parseNumericInput(rateInput?.value, AppState.globalHourlyRate));
+    proj.begrootMateriaal = Math.max(0, parseNumericInput(plMatInput?.value, proj.begrootMateriaal));
+    proj.werkelijkMateriaal = Math.max(0, parseNumericInput(actMatInput?.value, proj.werkelijkMateriaal));
+    if (salesPriceInput) {
+      proj.verkoopprijs = Math.max(0, parseNumericInput(salesPriceInput.value, proj.verkoopprijs || 0));
+    }
     proj.bestelstatus = supInput?.value.trim() || 'Op schema';
-    proj.heeftVertraging = supDelayInput ? supDelayInput.checked : false;
+    proj.heeftVertraging = supDelayInput ? Boolean(supDelayInput.checked) : Boolean(proj.heeftVertraging);
+
+    if (oldId !== newId) {
+      AppState.recentProjectIds = AppState.recentProjectIds.map(id => (id === oldId ? newId : id));
+    }
 
     AppState.selectedProjectId = newId;
-    AppState.saveProjects();
+    const saved = AppState.saveProjects();
     renderAll(populateInputs);
+    return saved;
   }
 
   /* ===================================================================
@@ -1324,6 +2088,7 @@ function parseUrenregistratieCsv(text) {
     // Klantweergave toggle
     const handleClientToggle = e => {
       AppState.clientViewActive = e.target.checked;
+      AppState.saveUiPreferences();
       renderAll(true);
       showToast(AppState.clientViewActive ? 'Klantweergave actief (interne marges verborgen)' : 'Interne weergave hersteld');
     };
@@ -1333,6 +2098,7 @@ function parseUrenregistratieCsv(text) {
 
     document.getElementById('disableClientViewBtn')?.addEventListener('click', () => {
       AppState.clientViewActive = false;
+      AppState.saveUiPreferences();
       renderAll(true);
       showToast('Interne weergave hersteld');
     });
@@ -1394,9 +2160,82 @@ function parseUrenregistratieCsv(text) {
     // Import Modal
     const importModal = document.getElementById('importModal');
     const feedbackBox = document.getElementById('importFeedbackBox');
+    const previewBox = document.getElementById('importPreviewBox');
+    const targetProjectInput = document.getElementById('importTargetProjectInput');
+    const pasteTextarea = document.getElementById('csvPasteTextarea');
+    const csvFileInput = document.getElementById('csvFileInput');
+    let currentImportFileName = '';
+
+    const updateImportPreview = () => {
+      if (!previewBox) return;
+      const rawText = pasteTextarea?.value || '';
+      if (!rawText.trim()) {
+        previewBox.classList.add('hidden');
+        previewBox.innerHTML = '';
+        return;
+      }
+
+      try {
+        const analysis = analyzeCsvImport(rawText, AppState.globalHourlyRate, {
+          fileName: currentImportFileName,
+          existingProjects: AppState.projects
+        });
+
+        previewBox.classList.remove('hidden');
+        if (analysis.format === 'basic_calculation') {
+          if (analysis.detectedProjectNumber && targetProjectInput) {
+            targetProjectInput.value = analysis.detectedProjectNumber;
+          }
+          const linkedNum = analysis.detectedProjectNumber || targetProjectInput?.value.trim() || '';
+          const matchedProj = linkedNum
+            ? AppState.projects.find(p => p.projectnummer.toLowerCase() === linkedNum.toLowerCase())
+            : null;
+          const badgeHtml = analysis.detectedProjectNumber
+            ? `<span class="font-bold text-emerald-700">Vast projectnummer gevonden in bestand: ${analysis.detectedProjectNumber}</span>`
+            : `<span class="font-bold text-amber-800">Geen projectnummer in bestand gevonden — koppelt aan opgegeven projectnummer (${linkedNum || 'vul in'})</span>`;
+
+          previewBox.className = 'text-xs p-3.5 rounded-xl bg-[#eef3f9] border border-[#b6c8e2] text-[#0a2246] space-y-1';
+          previewBox.innerHTML = `
+            <div class="font-extrabold">Voorcalculatie CSV herkend (Basic calculation)</div>
+            <div>${badgeHtml}${matchedProj ? ` &bull; Bestaand project: <strong>${formatIspProjectTitle(matchedProj)}</strong>` : ''}</div>
+            <div class="font-mono-num text-[11px] text-slate-700">
+              Begrote uren: <strong>${formatNumber(analysis.begroteUren)} u</strong> &bull;
+              Begroot materiaal: <strong>${formatEuro(analysis.begrootMateriaal)}</strong> &bull;
+              Uurtarief: <strong>${formatEuro(analysis.tarief)}/u</strong> &bull;
+              Verkoopprijs: <strong>${formatEuro(analysis.verkoopprijs)}</strong>
+            </div>
+          `;
+        } else if (analysis.format === 'urenregistratie') {
+          const targetNum = targetProjectInput?.value.trim() || AppState.selectedProjectId;
+          const targetEntry = targetNum
+            ? analysis.entries.find(e => e.projectnummer.toLowerCase() === targetNum.toLowerCase())
+            : null;
+          previewBox.className = 'text-xs p-3.5 rounded-xl bg-[#eef3f9] border border-[#b6c8e2] text-[#0a2246] space-y-1';
+          previewBox.innerHTML = `
+            <div class="font-extrabold">Urenregistratie CSV herkend (${analysis.entries.length} projecten, ${analysis.rowsProcessed} regels, ${formatNumber(analysis.totalHours)} u totaal)</div>
+            <div>Koppelt automatisch per project op basis van de kolom <code class="font-mono-num font-bold">Projectnummer</code>.${analysis.skippedInternalRows > 0 ? ` (${analysis.skippedInternalRows} interne urencodes 100-199 overgeslagen.)` : ''}</div>
+            ${targetEntry ? `<div class="font-mono-num text-[11px] text-emerald-800 font-bold">Project ${targetEntry.projectnummer} in bestand: ${formatNumber(targetEntry.totalUren)} uur (Werkplaats ${formatNumber(targetEntry.werkplaatsUren)}u / Kantoor ${formatNumber(targetEntry.kantoorUren)}u)</div>` : ''}
+          `;
+        } else {
+          previewBox.className = 'text-xs p-3.5 rounded-xl bg-[#eef3f9] border border-[#b6c8e2] text-[#0a2246] space-y-1';
+          previewBox.innerHTML = `
+            <div class="font-extrabold">Projectentabel CSV herkend (${analysis.projects.length} projecten)</div>
+            <div>Koppelt per rij op de kolom <code class="font-mono-num font-bold">Projectnummer</code>.</div>
+          `;
+        }
+      } catch (err) {
+        previewBox.className = 'text-xs p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900';
+        previewBox.textContent = err.message;
+        previewBox.classList.remove('hidden');
+      }
+    };
 
     const handleOpenImportModal = () => {
       feedbackBox?.classList.add('hidden');
+      if (targetProjectInput && (!pasteTextarea || !pasteTextarea.value.trim())) {
+        targetProjectInput.value = AppState.selectedProjectId || '';
+      }
+      updateImportPreview();
       importModal?.classList.remove('hidden');
     };
     document.getElementById('openImportModalBtn')?.addEventListener('click', handleOpenImportModal);
@@ -1405,75 +2244,54 @@ function parseUrenregistratieCsv(text) {
     document.getElementById('cancelImportBtn')?.addEventListener('click', () => importModal?.classList.add('hidden'));
     document.getElementById('downloadSampleCsvBtn')?.addEventListener('click', downloadSampleTemplateCsv);
 
-    document.getElementById('csvFileInput')?.addEventListener('change', e => {
+    pasteTextarea?.addEventListener('input', updateImportPreview);
+    targetProjectInput?.addEventListener('input', updateImportPreview);
+
+    csvFileInput?.addEventListener('change', e => {
       const file = e.target.files?.[0];
       if (!file) return;
+      currentImportFileName = file.name || '';
+      const fileNum = extractProjectNumberFromTextOrName(currentImportFileName);
+      if (fileNum && targetProjectInput) {
+        targetProjectInput.value = fileNum;
+      }
       const reader = new FileReader();
       reader.onload = evt => {
-        document.getElementById('csvPasteTextarea').value = evt.target?.result || '';
+        if (pasteTextarea) pasteTextarea.value = evt.target?.result || '';
+        updateImportPreview();
       };
       reader.readAsText(file);
     });
 
-  document.getElementById('processImportBtn')?.addEventListener('click', () => {
-      const rawText = document.getElementById('csvPasteTextarea').value;
-      const importType = document.getElementById('importTypeSelect').value;
-      const feedbackBox = document.getElementById('importFeedbackBox');
-      
-      if (!rawText.trim()) {
-        if (feedbackBox) {
-          feedbackBox.className = 'text-xs p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 font-semibold';
-          feedbackBox.textContent = 'Plak eerst CSV tekst of upload een bestand.';
-          feedbackBox.classList.remove('hidden');
-        }
-        return;
-      }
-
+    document.getElementById('processImportBtn')?.addEventListener('click', () => {
+      const rawText = pasteTextarea?.value || '';
       try {
-        let feedbackBoxMsg = '';
-        if (importType === 'projecten') {
-          // OUDE LOGICA: Nieuwe projecten importeren
-          const imported = parseFlexibleCsv(rawText, AppState.globalHourlyRate);
-          const replaceAll = document.getElementById('replaceOnImportCheckbox').checked;
+        const analysis = analyzeCsvImport(rawText, AppState.globalHourlyRate, {
+          fileName: currentImportFileName,
+          existingProjects: AppState.projects
+        });
+        const replaceAll = Boolean(document.getElementById('replaceOnImportCheckbox')?.checked);
+        const targetNum = targetProjectInput?.value.trim() || AppState.selectedProjectId || '';
 
-          if (replaceAll) {
-            AppState.projects = imported;
-          } else {
-            imported.forEach(imp => {
-              const existingIdx = AppState.projects.findIndex(p => p.projectnummer === imp.projectnummer);
-              if (existingIdx !== -1) AppState.projects[existingIdx] = imp;
-              else AppState.projects.unshift(imp);
-            });
-          }
-          AppState.selectedProjectId = imported[0].projectnummer;
-          AppState.trackRecentProject(imported[0].projectnummer);
-          feedbackBoxMsg = `Succesvol ${imported.length} project(en) geïmporteerd!`;
-          
-        } else if (importType === 'uren') {
-          // NIEUWE LOGICA: Uren optellen bij bestaande projecten
-          const updatedCount = parseUrenregistratieCsv(rawText);
-          feedbackBoxMsg = `Urenregistratie verwerkt! Uren bijgewerkt voor ${updatedCount} projecten.`;
-          
-        } else if (importType === 'calculatie') {
-          // NIEUWE LOGICA: Begroting van actief project updaten
-          const currentProj = AppState.getCurrentProject();
-          parseCalculatieCsv(rawText, currentProj);
-          feedbackBoxMsg = `Voorcalculatie ingeladen voor project ${currentProj.projectnummer}!`;
-        }
-
-        AppState.saveProjects();
+        const result = applyCsvImport(analysis, {
+          targetProjectNumber: targetNum,
+          replaceAll
+        });
 
         if (feedbackBox) {
           feedbackBox.className = 'text-xs p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 font-semibold';
-          feedbackBox.textContent = feedbackBoxMsg;
+          feedbackBox.textContent = result.message;
           feedbackBox.classList.remove('hidden');
         }
 
         renderAll(true);
-        switchTab('dashboard');
-        showToast(feedbackBoxMsg);
-        setTimeout(() => importModal?.classList.add('hidden'), 1500);
-
+        showToast(result.message);
+        setTimeout(() => {
+          importModal?.classList.add('hidden');
+          if (document.getElementById('viewProjectDashboard')) {
+            switchTab('dashboard');
+          }
+        }, 700);
       } catch (err) {
         if (feedbackBox) {
           feedbackBox.className = 'text-xs p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 font-semibold';
@@ -1485,7 +2303,7 @@ function parseUrenregistratieCsv(text) {
 
     // Exporteer Rapport (A4 Print) & Exporteer CSV
     const triggerPrintReport = () => {
-      if (AppState.activeTab === 'home') {
+      if (AppState.activeTab === 'home' && document.getElementById('viewProjectDashboard')) {
         switchTab('dashboard');
       }
       const printTs = document.getElementById('printTimestamp');
@@ -1497,6 +2315,7 @@ function parseUrenregistratieCsv(text) {
     document.getElementById('bottomExportCsvBtn')?.addEventListener('click', exportCalculatedCsv);
     document.getElementById('mobileExportCsvBtn')?.addEventListener('click', exportCalculatedCsv);
     document.getElementById('exportReportBtn')?.addEventListener('click', triggerPrintReport);
+    document.getElementById('bottomExportReportBtn')?.addEventListener('click', triggerPrintReport);
     document.getElementById('mobileExportReportBtn')?.addEventListener('click', triggerPrintReport);
     // Acties & Beheer dropdown menu toggle
     const actionsMenuBtn = document.getElementById('actionsMenuBtn');
@@ -1551,21 +2370,39 @@ function parseUrenregistratieCsv(text) {
   window.findProjectsBySmartQuery = findProjectsBySmartQuery;
   window.openProjectStatusScreen = openProjectStatusScreen;
   window.parseFlexibleCsv = parseFlexibleCsv;
+  window.analyzeCsvImport = analyzeCsvImport;
+  window.applyCsvImport = applyCsvImport;
+  window.parseCleanNumber = parseCleanNumber;
   window.exportCalculatedCsv = exportCalculatedCsv;
   window.downloadSampleTemplateCsv = downloadSampleTemplateCsv;
   window.renderHeaderControls = renderHeaderControls;
   window.renderClientViewVisibility = renderClientViewVisibility;
   window.syncCurrentFormToProjectAndRender = syncCurrentFormToProjectAndRender;
+  window.updateSaveStatusIndicator = updateSaveStatusIndicator;
   window.renderAll = renderAll;
   window.switchTab = switchTab;
 
   /* ===================================================================
-   * 10. BOOTSTRAP BIJ DOMCONTENTLOADED
+   * 10. BOOTSTRAP BIJ DOMCONTENTLOADED & CROSS-TAB SYNC
    * =================================================================== */
   document.addEventListener('DOMContentLoaded', () => {
     AppState.init();
     setupGlobalEventListeners();
     renderAll(true);
+  });
+
+  window.addEventListener('pageshow', evt => {
+    if (evt.persisted) {
+      AppState.init();
+      renderAll(true);
+    }
+  });
+
+  window.addEventListener('storage', evt => {
+    if (evt.key && Object.values(STORAGE_KEYS).includes(evt.key)) {
+      AppState.init();
+      renderAll(true);
+    }
   });
 
 })(window);

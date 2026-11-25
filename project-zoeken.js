@@ -128,7 +128,7 @@
     if (pageItems.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="8" class="py-8 px-4 text-center text-slate-500 text-sm">
+          <td colspan="9" class="py-8 px-4 text-center text-slate-500 text-sm">
             Geen ISP-projecten gevonden voor deze zoekopdracht of filterkeuze.
           </td>
         </tr>
@@ -175,7 +175,13 @@
           ${formatNumber(m.werkelijkeUren)} / ${formatNumber(m.begroteUren)} u
           <div class="text-[11px] font-normal text-slate-500">${formatSignedPct(m.afwijkingUrenPct)}</div>
         </td>
-        <td class="py-3.5 px-4 text-right font-mono-num font-extrabold ${AppState.clientViewActive ? 'hidden' : ''} ${m.verschilBudget >= 0 ? 'text-emerald-600' : 'text-rose-600'}">
+        <td class="py-3.5 px-4 text-right font-mono-num font-extrabold text-[#0a2246] whitespace-nowrap">
+          ${formatEuro(m.verkoopprijs)}
+          <div class="text-[11px] font-normal ${AppState.clientViewActive ? 'hidden' : 'internal-cost-field'} ${m.gerealiseerdeMargeEuro >= 0 ? 'text-emerald-700' : 'text-rose-600'}">
+            Marge: ${formatSignedEuro(m.gerealiseerdeMargeEuro)} (${m.gerealiseerdeMargePct.toFixed(0)}%)
+          </div>
+        </td>
+        <td class="py-3.5 px-4 text-right font-mono-num font-extrabold ${AppState.clientViewActive ? 'hidden' : 'internal-cost-field'} ${m.verschilBudget >= 0 ? 'text-emerald-600' : 'text-rose-600'}">
           ${formatSignedEuro(m.verschilBudget)}
           <div class="text-[11px] font-normal text-slate-500">${formatSignedPct(m.afwijkingBudgetPct)}</div>
         </td>

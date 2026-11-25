@@ -6,6 +6,14 @@
 (function (window) {
   'use strict';
 
+  function escapeHtml(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
   /**
    * Genereert een strakke, goed leesbare statusbadge ZONDER de kleurnaam erin
    * (geen 'GROEN —', 'ORANJE —', 'ROOD —' meer, nooit meer afbreken op 2 regels)
@@ -41,9 +49,14 @@
       ? enriched.filter(x => x.project.status === 'Lopend')
       : enriched;
 
-    const redCount = scopedForCounts.filter(x => x.metrics.statusLevel === 'ROOD').length;
-    const orangeCount = scopedForCounts.filter(x => x.metrics.statusLevel === 'ORANJE').length;
-    const supplierCount = scopedForCounts.filter(x => x.metrics.heeftVertraging).length;
+    const manualNotes = Array.isArray(AppState.morningNotes) ? AppState.morningNotes : [];
+    const manualRed = manualNotes.filter(n => n.status === 'rood').length;
+    const manualOrange = manualNotes.filter(n => n.status === 'oranje').length;
+    const manualSupplier = manualNotes.filter(n => n.status === 'leverancier').length;
+
+    const redCount = scopedForCounts.filter(x => x.metrics.statusLevel === 'ROOD').length + manualRed;
+    const orangeCount = scopedForCounts.filter(x => x.metrics.statusLevel === 'ORANJE').length + manualOrange;
+    const supplierCount = scopedForCounts.filter(x => x.metrics.heeftVertraging).length + manualSupplier;
 
     const redCountEl = document.getElementById('morningCountRed');
     if (redCountEl) redCountEl.textContent = String(redCount);
@@ -60,7 +73,47 @@
     if (container) {
       container.innerHTML = '';
 
-      if (bottleneckItems.length === 0) {
+      // Render handmatig opgeslagen meldingen uit het Snel-invoer paneel
+      manualNotes.forEach(note => {
+        let statusKleur = 'bg-[#eef3f9] text-[#0a2246] border border-[#dbe4f0]';
+        let statusTekst = 'Toeleverancier';
+        let borderAccent = 'border-l-8 border-l-[#0a2246]';
+        if (note.status === 'rood') {
+          statusKleur = 'bg-rose-100 text-rose-800 border border-rose-300';
+          statusTekst = 'Kritiek (Rood)';
+          borderAccent = 'border-l-8 border-l-rose-600';
+        } else if (note.status === 'oranje') {
+          statusKleur = 'bg-amber-100 text-amber-900 border border-amber-300';
+          statusTekst = 'Risico (Oranje)';
+          borderAccent = 'border-l-8 border-l-amber-500';
+        }
+
+        const matchedProjects = typeof findProjectsBySmartQuery === 'function'
+          ? findProjectsBySmartQuery(note.project)
+          : [];
+        const matchedProj = matchedProjects.length > 0 ? matchedProjects[0] : null;
+
+        const noteCard = document.createElement('div');
+        noteCard.className = `bg-white p-4 sm:p-5 rounded-2xl border border-[#dbe4f0] ${borderAccent} shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4`;
+        noteCard.innerHTML = `
+          <div class="space-y-1.5 flex-1">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="px-2.5 py-0.5 rounded-full text-xs font-extrabold ${statusKleur}">${statusTekst}</span>
+              <span class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 text-slate-600">Handmatige melding</span>
+              <h4 class="font-extrabold text-[#0a2246] text-sm sm:text-base">${escapeHtml(note.project)}</h4>
+            </div>
+            <p class="text-xs text-slate-600"><strong>Omvang:</strong> ${escapeHtml(note.omvang || 'Niet opgegeven')}</p>
+            <p class="text-xs text-slate-700"><strong>Toelichting:</strong> ${escapeHtml(note.toelichting || 'Geen toelichting')}</p>
+          </div>
+          <div class="flex items-center gap-2 shrink-0 no-print">
+            ${matchedProj ? `<button type="button" data-open-project="${escapeHtml(matchedProj.projectnummer)}" class="px-3.5 py-2 rounded-xl text-xs font-extrabold bg-[#0a2246] hover:bg-[#12356b] text-white transition cursor-pointer">Bekijk Status →</button>` : ''}
+            <button type="button" data-remove-morning-note="${escapeHtml(note.id)}" class="px-3 py-2 rounded-xl text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition cursor-pointer">Afhandelen</button>
+          </div>
+        `;
+        container.appendChild(noteCard);
+      });
+
+      if (bottleneckItems.length === 0 && manualNotes.length === 0) {
         container.innerHTML = `
           <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-6 text-center text-emerald-900">
             <div class="text-lg font-extrabold">Geen acute knelpunten voor het overleg!</div>
@@ -83,6 +136,7 @@
                 <span class="text-xs font-bold uppercase px-2.5 py-0.5 rounded-lg ${project.status === 'Lopend' ? 'bg-blue-100 text-[#0a2246]' : 'bg-slate-200 text-slate-700'}">${project.status}</span>
                 ${renderCleanStatusBadge(metrics)}
                 ${metrics.heeftVertraging ? '<span class="text-xs font-bold px-2.5 py-0.5 rounded-lg bg-amber-100 text-amber-900 border border-amber-300">Leveranciersvertraging</span>' : ''}
+                <span class="text-xs font-mono-num font-bold px-2.5 py-0.5 rounded-lg bg-[#eef3f9] text-[#0a2246] border border-[#dbe4f0]">Verkoop: ${formatEuro(metrics.verkoopprijs)}</span>
               </div>
               <h4 class="text-base sm:text-lg font-extrabold text-[#0a2246]">${fullTitle}</h4>
               <div class="text-xs text-slate-600">
@@ -172,7 +226,7 @@
     if (tableProjects.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="8" class="py-8 px-4 text-center text-slate-500 text-sm">
+          <td colspan="9" class="py-8 px-4 text-center text-slate-500 text-sm">
             Geen projecten gevonden in deze categorie (${currentFilter}).
           </td>
         </tr>
@@ -204,7 +258,10 @@
         <td class="py-3.5 px-4 text-right font-mono-num font-semibold whitespace-nowrap">
           ${formatNumber(metrics.werkelijkeUren)} / ${formatNumber(metrics.begroteUren)} u
         </td>
-        <td class="py-3.5 px-4 text-right font-mono-num font-bold internal-cost-field whitespace-nowrap ${metrics.verschilBudget >= 0 ? 'text-emerald-600' : 'text-rose-600'}">
+        <td class="py-3.5 px-4 text-right font-mono-num font-extrabold text-[#0a2246] whitespace-nowrap">
+          ${formatEuro(metrics.verkoopprijs)}
+        </td>
+        <td class="py-3.5 px-4 text-right font-mono-num font-bold ${AppState.clientViewActive ? 'hidden' : 'internal-cost-field'} whitespace-nowrap ${metrics.verschilBudget >= 0 ? 'text-emerald-600' : 'text-rose-600'}">
           ${formatSignedEuro(metrics.verschilBudget)}
         </td>
         <td class="py-3.5 px-4 text-right font-mono-num font-bold whitespace-nowrap ${metrics.afwijkingBudgetPct <= 0 ? 'text-emerald-600' : (metrics.afwijkingBudgetPct < 10 ? 'text-amber-600' : 'text-rose-600')}">
@@ -235,6 +292,7 @@
     if (activeToggle) {
       activeToggle.addEventListener('change', e => {
         AppState.morningOnlyActive = e.target.checked;
+        AppState.saveUiPreferences();
         renderMorningMeetingView();
       });
     }
@@ -242,22 +300,35 @@
     // Filterknoppen in de tabel
     document.getElementById('morningFilterActive')?.addEventListener('click', () => {
       AppState.morningTableFilter = 'Lopend';
+      AppState.saveUiPreferences();
       renderMorningMeetingView();
     });
 
     document.getElementById('morningFilterCompleted')?.addEventListener('click', () => {
       AppState.morningTableFilter = 'Afgerond';
+      AppState.saveUiPreferences();
       renderMorningMeetingView();
     });
 
     document.getElementById('morningFilterAll')?.addEventListener('click', () => {
       AppState.morningTableFilter = 'Alles';
+      AppState.saveUiPreferences();
       renderMorningMeetingView();
     });
 
     const viewMorn = document.getElementById('viewMorningMeeting');
     if (viewMorn) {
       viewMorn.addEventListener('click', e => {
+        const removeBtn = e.target.closest('[data-remove-morning-note]');
+        if (removeBtn) {
+          const noteId = removeBtn.getAttribute('data-remove-morning-note');
+          if (noteId) {
+            AppState.removeMorningNote(noteId);
+            renderMorningMeetingView();
+            showToast('Melding afgehandeld en bijgewerkt.');
+          }
+          return;
+        }
         const btn = e.target.closest('[data-open-project]');
         if (btn) {
           const pnum = btn.getAttribute('data-open-project');
@@ -266,6 +337,42 @@
           }
         }
       });
+    }
+
+    // Snel-invoer Paneel (persistent opgeslagen via AppState / localStorage)
+    const quickForm = document.getElementById('quickEntryForm');
+    if (quickForm) {
+      const saveBtn = quickForm.querySelector('button');
+      const handleQuickSubmit = e => {
+        if (e) e.preventDefault();
+        const project = document.getElementById('qeProject')?.value.trim() || '';
+        const status = document.getElementById('qeStatus')?.value || '';
+        const omvang = document.getElementById('qeOmvang')?.value.trim() || '';
+        const toelichting = document.getElementById('qeToelichting')?.value.trim() || '';
+
+        if (!project || !status) {
+          showToast('Vul in ieder geval een project en een status in!');
+          return;
+        }
+
+        AppState.addMorningNote({
+          id: `note_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          project,
+          status,
+          omvang,
+          toelichting,
+          createdAt: new Date().toISOString()
+        });
+
+        quickForm.reset();
+        renderMorningMeetingView();
+        showToast('Knelpunt opgeslagen voor het ochtendoverleg!');
+      };
+
+      quickForm.addEventListener('submit', handleQuickSubmit);
+      if (saveBtn) {
+        saveBtn.addEventListener('click', handleQuickSubmit);
+      }
     }
   }
 
@@ -276,68 +383,3 @@
   };
 
 })(window);
-// Zorg dat de code pas runt als de pagina geladen is
-document.addEventListener('DOMContentLoaded', function() {
-    
-    // Zoek het formulier en de knop op
-    const form = document.getElementById('quickEntryForm');
-    if (!form) return; // Als het formulier niet bestaat, stop dan
-    
-    const saveBtn = form.querySelector('button');
-    const container = document.getElementById('morningCardsContainer');
-
-    // Wat er moet gebeuren als je op de knop klikt
-    saveBtn.addEventListener('click', function() {
-        
-        // Haal de ingevulde waardes op
-        const project = document.getElementById('qeProject').value;
-        const status = document.getElementById('qeStatus').value;
-        const omvang = document.getElementById('qeOmvang').value;
-        const toelichting = document.getElementById('qeToelichting').value;
-
-        // Check of project en status op zijn minst zijn ingevuld
-        if (!project || !status) {
-            alert('Vul in ieder geval een project en een status in!');
-            return;
-        }
-
-        // Bepaal de kleuren en pas de juiste teller aan bovenaan de pagina
-        let statusKleur = '';
-        let statusTekst = '';
-
-        if (status === 'rood') {
-            statusKleur = 'bg-rose-100 text-rose-700';
-            statusTekst = 'Kritiek (Rood)';
-            let counter = document.getElementById('morningCountRed');
-            counter.innerText = parseInt(counter.innerText) + 1;
-        } else if (status === 'oranje') {
-            statusKleur = 'bg-amber-100 text-amber-700';
-            statusTekst = 'Risico (Oranje)';
-            let counter = document.getElementById('morningCountOrange');
-            counter.innerText = parseInt(counter.innerText) + 1;
-        } else if (status === 'leverancier') {
-            statusKleur = 'bg-[#eef3f9] text-[#0a2246]';
-            statusTekst = 'Toeleverancier';
-            let counter = document.getElementById('morningCountSupplier');
-            counter.innerText = parseInt(counter.innerText) + 1;
-        }
-
-        // Maak een nieuw kaartje aan voor in de lijst
-        const card = document.createElement('div');
-        card.className = 'bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-3';
-        card.innerHTML = `
-          <div class="flex items-center gap-3 mb-2">
-              <span class="px-2 py-1 rounded-md text-xs font-bold ${statusKleur}">${statusTekst}</span>
-              <h4 class="font-bold text-[#0a2246] text-sm">${project}</h4>
-          </div>
-          <p class="text-sm text-slate-600 mb-1"><strong>Omvang:</strong> ${omvang || 'Niet opgegeven'}</p>
-          <p class="text-sm text-slate-600"><strong>Toelichting:</strong> ${toelichting || 'Geen toelichting'}</p>
-        `;
-
-        // Zet het nieuwe kaartje bovenaan in de lijst
-        container.prepend(card);
-
-        // Maak het formulier weer leeg voor de volgende melding
-        form.reset();
-    });
-});

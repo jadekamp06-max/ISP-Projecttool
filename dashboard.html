@@ -1,18 +1,76 @@
 <!DOCTYPE html>
-<html lang="nl">
+<html lang="nl" class="h-full bg-[#f4f7fb]">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ISP Barendrecht — Tab 2: Project Dashboard</title>
-  <!-- Tailwind CSS CDN & Chart.js CDN -->
+  <!-- Tailwind CSS via CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            isp: {
+              navy: '#0a2246',
+              blue: '#12356b',
+              accent: '#1d4ed8',
+              light: '#f4f7fb',
+              border: '#dbe4f0'
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace']
+          }
+        }
+      }
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Chart.js via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <!-- Centraal Stylesheet: bewerk style.css om styling aan te passen -->
   <link rel="stylesheet" href="style.css">
 </head>
 <body class="min-h-full text-slate-800 flex flex-col">
-<!-- TOP NAVIGATION BAR (BOVENBALK) -->
-  <header class="bg-[#0a2246] text-white border-b border-[#163a70] sticky top-0 z-40 shadow-md no-print w-full mb-6">
+
+  <!-- FLOATING TOAST NOTIFICATION -->
+  <div
+    id="toastNotification"
+    class="fixed bottom-5 right-5 z-50 hidden items-center gap-3 bg-[#0a2246] text-white px-4 py-3 rounded-xl shadow-xl border border-blue-400/30 text-sm font-semibold transition-all duration-300 no-print"
+  >
+    <span class="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0">
+      <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+    </span>
+    <span id="toastMessageText">Wijzigingen opgeslagen!</span>
+  </div>
+
+  <!-- PRINT-ONLY A4 HEADER -->
+  <div class="hidden print-only border-b-2 border-[#0a2246] pb-4 mb-6">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <img src="isp-logo-transparent.png" alt="ISP Logo" class="h-10 w-auto object-contain" />
+        <div>
+          <h1 class="text-xl font-extrabold tracking-tight text-[#0a2246] uppercase">
+            ISP Barendrecht — Industrial Solution Partner
+          </h1>
+          <p class="text-xs text-slate-600 mt-0.5" id="printReportSubtitle">
+            Project Insights &amp; Realtime Nacalculatie Rapportage
+          </p>
+        </div>
+      </div>
+      <div class="text-right text-xs text-slate-600 font-mono-num">
+        <div>Afdrukdatum: <span id="printTimestamp"></span></div>
+        <div id="printModeIndicator" class="font-semibold text-[#0a2246] mt-0.5">Interne Managementrapportage</div>
+      </div>
+    </div>
+  </div>
+
+<!-- TOP NAVIGATION BAR (VOLLEDIG IDENTIEK: LOGO, MENU, ZOEKVAK & ACTIES) -->
+  <header class="bg-[#0a2246] text-white border-b border-[#163a70] sticky top-0 z-40 shadow-md no-print w-full">
     <div class="max-w-[1600px] mx-auto px-3 sm:px-6 py-2.5">
       <div class="flex items-center justify-between gap-2 sm:gap-4 w-full min-w-0">
 
@@ -53,6 +111,7 @@
             href="dashboard.html"
             id="tabDashboardBtn"
             class="isp-nav-tab active"
+            aria-current="page"
             title="Voorcalculatie vs. nacalculatie en projectdetails"
           >
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -78,6 +137,7 @@
 
         <!-- RECHTERZIJDE: DESKTOP ACTIES -->
         <div class="hidden lg:flex items-center gap-1.5 xl:gap-2 shrink-0">
+          <!-- Snelzoeken -->
           <div class="relative w-36 xl:w-44 2xl:w-52">
             <svg class="w-3.5 h-3.5 text-blue-200 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
@@ -89,18 +149,215 @@
               class="w-full pl-7 pr-6 py-1.5 bg-[#12356b] border border-[#2b5fb3] rounded-lg text-xs text-white placeholder-blue-200/80 focus:outline-none focus:ring-2 focus:ring-white font-medium"
               autocomplete="off"
             />
+            <button
+              id="clearSearchBtn"
+              type="button"
+              title="Zoekopdracht wissen"
+              class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-blue-200 hover:text-white text-xs"
+            >
+              &times;
+            </button>
+            <div id="searchSuggestions" class="hidden absolute left-0 right-0 mt-1.5 bg-[#0a2246] border border-[#2b5fb3] rounded-xl shadow-2xl max-h-80 overflow-y-auto z-50 divide-y divide-[#163a70]"></div>
           </div>
 
-          <label class="inline-flex items-center cursor-pointer select-none bg-[#12356b] hover:bg-[#1b4585] px-2 py-1.5 rounded-lg border border-[#2b5fb3] transition">
+          <select id="projectSelector" class="hidden" aria-hidden="true"></select>
+
+          <label class="inline-flex items-center cursor-pointer select-none bg-[#12356b] hover:bg-[#1b4585] px-2 py-1.5 rounded-lg border border-[#2b5fb3] transition" title="Verberg interne marges en exacte kosten voor klantrapportage">
             <input type="checkbox" id="clientViewToggle" class="sr-only peer" />
             <div class="w-6 h-3.5 bg-[#1e4278] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-2.5 after:w-2.5 after:transition-all relative peer-checked:bg-emerald-500"></div>
             <span class="ml-1.5 text-[11px] font-semibold text-blue-100 peer-checked:text-white whitespace-nowrap">Klantmodus</span>
           </label>
+
+          <!-- Snelle A4 PDF Printknop -->
+          <button
+            id="exportReportBtn"
+            type="button"
+            class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-extrabold bg-white hover:bg-blue-50 text-[#0a2246] shadow-xs transition cursor-pointer whitespace-nowrap"
+            title="A4 Rapport afdrukken of opslaan als PDF"
+          >
+            <svg class="w-3.5 h-3.5 text-[#0a2246]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+            </svg>
+            <span class="hidden 2xl:inline">Afdrukken</span>
+          </button>
+
+          <!-- BEHEER & ACTIES DROPDOWN MENU -->
+          <div class="relative">
+            <button
+              id="actionsMenuBtn"
+              type="button"
+              class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-[#12356b] hover:bg-[#1b4585] text-white border border-[#2b5fb3] transition cursor-pointer whitespace-nowrap"
+              title="Beheeropties, import, export en instellingen"
+              aria-haspopup="true"
+            >
+              <svg class="w-3.5 h-3.5 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
+              </svg>
+              <span>Acties</span>
+              <svg class="w-3 h-3 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+              </svg>
+            </button>
+
+            <div id="actionsMenuDropdown" class="hidden isp-dropdown-menu absolute right-0 mt-2 py-1.5">
+              <div class="px-4 py-2 border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                Projectbeheer &amp; Data
+              </div>
+
+              <button id="addNewProjectBtn" type="button" class="isp-dropdown-item">
+                <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                <span>Nieuw Project Toevoegen</span>
+              </button>
+
+              <button id="openImportModalBtn" type="button" class="isp-dropdown-item">
+                <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                </svg>
+                <span>Data Importeren (Excel / CSV)</span>
+              </button>
+
+              <button id="exportCsvBtn" type="button" class="isp-dropdown-item">
+                <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                <span>Exporteer CSV (Nacalculatie)</span>
+              </button>
+
+              <div class="my-1 border-t border-slate-100"></div>
+              <div class="px-4 py-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                Configuratie &amp; Systeem
+              </div>
+
+              <button id="editGlobalRateBtn" type="button" class="isp-dropdown-item">
+                <svg class="w-4 h-4 text-[#0a2246]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <div class="flex-1 flex items-center justify-between">
+                  <span>Standaard Tarief</span>
+                  <span id="globalRateDisplay" class="font-mono-num font-extrabold text-[#0a2246] bg-slate-100 px-2 py-0.5 rounded text-[11px]">€ 65,00</span>
+                </div>
+              </button>
+
+              <button id="openSettingsModalBtn" type="button" class="isp-dropdown-item">
+                <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+                <div class="flex-1 flex items-center justify-between">
+                  <span>Instellingen (API)</span>
+                  <span id="apiStatusDot" class="w-2.5 h-2.5 rounded-full bg-amber-400" title="Demo-modus actief"></span>
+                </div>
+              </button>
+
+              <button id="resetDemoDataBtn" type="button" class="isp-dropdown-item text-slate-500 hover:text-rose-700">
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                <span>Herstel Demodata (490 prj)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- RECHTERZIJDE: MOBIEL & TABLET BEDIENING (< LG) -->
+        <div class="flex lg:hidden items-center gap-2 shrink-0">
+          <button
+            id="mobileCurrentProjectQuickBtn"
+            type="button"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#12356b] border border-[#2b5fb3] text-white text-xs font-mono-num font-extrabold hover:bg-[#1b4585] transition"
+            title="Klik om direct naar de projectstatus te gaan"
+          >
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span id="mobileHeaderProjectNum">200490</span>
+          </button>
+
+          <button
+            id="mobileMenuToggleBtn"
+            type="button"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-blue-50 text-[#0a2246] text-xs font-extrabold shadow-sm transition border border-white cursor-pointer select-none"
+            aria-expanded="false"
+            aria-controls="mobileNavDrawer"
+          >
+            <svg id="mobileMenuIconClosed" class="w-4 h-4 text-[#0a2246]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 6h16M4 12h16M4 18h16"/>
+            </svg>
+            <svg id="mobileMenuIconOpen" class="w-4 h-4 text-[#0a2246] hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+            <span id="mobileMenuBtnText">Menu</span>
+            <span id="mobileMenuAlertDot" class="hidden w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+          </button>
         </div>
 
       </div>
     </div>
+
+    <!-- IN- EN UITKLAPBAAR MENU DRAWER VOOR MOBIEL & TABLET -->
+    <div id="mobileNavDrawer" class="hidden lg:hidden border-t border-[#163a70] bg-[#071936] text-white px-4 py-4 space-y-4 shadow-2xl max-h-[85vh] overflow-y-auto">
+      <div class="space-y-1.5">
+        <div class="text-[11px] font-extrabold uppercase tracking-wider text-blue-300/80 px-1 mb-1">Hoofdnavigatie</div>
+        <a href="index.html" id="mobDrawerHomeBtn" class="isp-mobile-tab-btn">
+          <span class="flex items-center gap-2.5"><span>Projecten</span></span>
+          <span class="text-xs text-blue-300 font-mono-num">Overzicht</span>
+        </a>
+        <a href="dashboard.html" id="mobDrawerDashboardBtn" class="isp-mobile-tab-btn active">
+          <span class="flex items-center gap-2.5"><span>Status</span></span>
+          <span id="mobDrawerProjectBadge" class="px-2 py-0.5 text-xs font-mono-num font-bold rounded bg-[#12356b] text-blue-200 border border-blue-400/30">200490</span>
+        </a>
+        <a href="ochtendoverleg.html" id="mobDrawerMorningBtn" class="isp-mobile-tab-btn">
+          <span class="flex items-center gap-2.5"><span>Overleg</span></span>
+          <span id="mobDrawerMorningBadge" class="px-2 py-0.5 text-xs font-mono-num font-extrabold rounded-full bg-rose-600 text-white">0</span>
+        </a>
+      </div>
+
+      <div class="pt-3 border-t border-[#163a70] space-y-2">
+        <div class="text-[11px] font-extrabold uppercase tracking-wider text-blue-300/80 px-1">Direct Project Openen</div>
+        <input id="mobileProjectSearchInput" type="text" placeholder="Type projectnummer (bijv. 200360)..." class="w-full px-3 py-2 bg-[#12356b] border border-[#2b5fb3] rounded-xl text-xs text-white placeholder-blue-200/70 focus:outline-none focus:ring-2 focus:ring-white font-medium" autocomplete="off" />
+        <select id="mobileProjectSelector" aria-label="Selecteer ISP project op mobiel" class="w-full py-2 px-3 bg-white text-[#0a2246] border border-white rounded-xl text-xs font-bold shadow-xs cursor-pointer"></select>
+      </div>
+
+      <div class="pt-3 border-t border-[#163a70] space-y-2.5">
+        <div class="text-[11px] font-extrabold uppercase tracking-wider text-blue-300/80 px-1">Weergave &amp; Acties</div>
+        <label class="flex items-center justify-between px-3.5 py-2.5 bg-[#12356b] rounded-xl border border-[#2b5fb3] cursor-pointer">
+          <span class="text-xs font-semibold text-white">Klantmodus (Verberg interne marges)</span>
+          <div class="relative">
+            <input type="checkbox" id="mobileClientViewToggle" class="sr-only peer" />
+            <div class="w-8 h-4 bg-[#1e4278] rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all relative peer-checked:bg-emerald-500"></div>
+          </div>
+        </label>
+        <div class="grid grid-cols-2 gap-2 pt-1">
+          <button id="mobileExportReportBtn" type="button" class="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-extrabold bg-white hover:bg-blue-50 text-[#0a2246] transition cursor-pointer">A4 Afdrukken</button>
+          <button id="mobileAddNewProjectBtn" type="button" class="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold bg-[#12356b] hover:bg-[#1b4585] text-white border border-[#2b5fb3] transition cursor-pointer"><span>Nieuw Project</span></button>
+          <button id="mobileOpenImportModalBtn" type="button" class="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold bg-[#12356b] hover:bg-[#1b4585] text-white border border-[#2b5fb3] transition cursor-pointer">Data Import</button>
+          <button id="mobileExportCsvBtn" type="button" class="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold bg-[#12356b] hover:bg-[#1b4585] text-white border border-[#2b5fb3] transition cursor-pointer">Exporteer CSV</button>
+        </div>
+        <div class="grid grid-cols-2 gap-2 pt-1">
+          <button id="mobileEditGlobalRateBtn" type="button" class="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold bg-[#102c59] text-blue-100 border border-[#1d4480] cursor-pointer"><span>Uurtarief:</span><span id="mobileGlobalRateDisplay" class="font-mono-num font-bold text-white">€ 65,00</span></button>
+          <button id="mobileOpenSettingsModalBtn" type="button" class="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold bg-[#102c59] text-blue-100 border border-[#1d4480] cursor-pointer"><span>Instellingen API</span><span id="mobileApiStatusDot" class="w-2.5 h-2.5 rounded-full bg-amber-400"></span></button>
+        </div>
+        <button id="mobileResetDemoDataBtn" type="button" class="w-full text-center py-2.5 text-xs font-semibold text-rose-300 hover:text-rose-100 transition cursor-pointer">Demodata Herstellen (200001 t/m 200490)</button>
+      </div>
+    </div>
   </header>
+
+  <main class="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+    <!-- Client View Active Banner -->
+    <div id="clientViewBanner" class="hidden bg-[#0a2246] text-white border-2 border-blue-400 rounded-2xl px-5 py-3.5 flex flex-wrap items-center justify-between gap-3 shadow-md">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-lg bg-white text-[#0a2246] flex items-center justify-center font-bold shrink-0">
+          <svg class="w-5 h-5 text-[#0a2246]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+        </div>
+        <div class="text-xs sm:text-sm">
+          <span class="font-extrabold block text-white">Klantweergave Actief (Externe Modus)</span>
+          <span class="text-blue-100">Interne uurtarieven, euro-marges en inkoopprijzen zijn verborgen zodat u dit scherm of PDF-rapport direct met de klant kunt delen.</span>
+        </div>
+      </div>
+      <button id="disableClientViewBtn" type="button" class="px-3.5 py-2 rounded-lg bg-white text-[#0a2246] text-xs font-extrabold hover:bg-blue-50 transition no-print cursor-pointer">
+        Terug naar Interne Weergave
+      </button>
+    </div>
   <!-- ===================================================================== -->
   <!-- TAB 2: APART PROJECTSTATUS-SCHERM — "DIT IS HOE HET ERVOOR STAAT"     -->
   <!-- Volgorde: 1. Gaat het goed of niet & waar? -> 2. Advies -> 3. Details -> 4. Export -->
@@ -187,8 +444,10 @@
           <h2 id="headerFullIspTitle" class="text-lg sm:text-2xl font-extrabold tracking-tight text-white mt-1.5">
             200490 Klant Omschrijving project
           </h2>
-          <div class="text-xs text-blue-200 mt-0.5 internal-cost-field">
-            Uurtarief: <strong id="headerHourlyRate" class="font-mono-num text-white">&euro; 65,00/u</strong>
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-blue-200 mt-1">
+            <span class="internal-cost-field">Uurtarief: <strong id="headerHourlyRate" class="font-mono-num text-white">&euro; 65,00/u</strong></span>
+            <span>Verkoopprijs: <strong id="headerSalesPrice" class="font-mono-num text-white font-extrabold">&euro; 0,00</strong></span>
+            <span id="headerSalesMarginBadge" class="internal-cost-field px-2 py-0.5 rounded bg-[#12356b] text-blue-100 border border-[#2b5fb3]/50 font-mono-num">Marge: &euro; 0,00 (0,0%)</span>
           </div>
         </div>
 
@@ -281,14 +540,20 @@
               </div>
             </div>
 
-            <div class="mt-4 pt-3 border-t border-slate-100 text-xs flex justify-between items-center internal-cost-field">
-              <div>
-                <span class="text-slate-400 block text-[11px]">Begroot</span>
-                <span id="kpiBudgetTotalPlanned" class="font-mono-num font-semibold text-slate-700">€ 0,00</span>
+            <div class="mt-4 pt-3 border-t border-slate-100 text-xs space-y-1.5">
+              <div class="flex justify-between items-center">
+                <span class="text-slate-500 font-semibold">Verkoopprijs</span>
+                <span id="kpiBudgetSalesPrice" class="font-mono-num font-extrabold text-[#0a2246]">€ 0,00</span>
               </div>
-              <div class="text-right">
-                <span class="text-slate-400 block text-[11px]">Werkelijk</span>
-                <span id="kpiBudgetTotalActual" class="font-mono-num font-bold text-[#0a2246]">€ 0,00</span>
+              <div class="flex justify-between items-center internal-cost-field">
+                <div>
+                  <span class="text-slate-400 block text-[11px]">Begroot</span>
+                  <span id="kpiBudgetTotalPlanned" class="font-mono-num font-semibold text-slate-700">€ 0,00</span>
+                </div>
+                <div class="text-right">
+                  <span class="text-slate-400 block text-[11px]">Werkelijk</span>
+                  <span id="kpiBudgetTotalActual" class="font-mono-num font-bold text-[#0a2246]">€ 0,00</span>
+                </div>
               </div>
             </div>
           </div>
@@ -518,7 +783,7 @@
                       <input
                         id="inputPlannedHours"
                         type="number"
-                        step="1"
+                        step="any"
                         min="0"
                         class="w-20 text-right font-mono-num font-bold text-[#0a2246] focus:outline-none"
                       />
@@ -531,7 +796,7 @@
                         <input
                           id="inputActualHours"
                           type="number"
-                          step="1"
+                          step="any"
                           min="0"
                           class="w-20 text-right font-mono-num font-extrabold text-[#0a2246] focus:outline-none"
                         />
@@ -565,7 +830,7 @@
                       <input
                         id="inputHourlyRate"
                         type="number"
-                        step="0.5"
+                        step="any"
                         min="0"
                         class="w-20 text-right font-mono-num font-bold text-[#0a2246] focus:outline-none"
                       />
@@ -608,7 +873,7 @@
                       <input
                         id="inputPlannedMaterial"
                         type="number"
-                        step="50"
+                        step="any"
                         min="0"
                         class="w-24 text-right font-mono-num font-bold text-[#0a2246] focus:outline-none"
                       />
@@ -621,7 +886,7 @@
                         <input
                           id="inputActualMaterial"
                           type="number"
-                          step="50"
+                          step="any"
                           min="0"
                           class="w-24 text-right font-mono-num font-extrabold text-[#0a2246] focus:outline-none"
                         />
@@ -657,6 +922,32 @@
                     € 0,00
                   </td>
                   <td id="tableTotalPct" class="py-4 px-4 text-right font-mono-num text-sm">
+                    0,0%
+                  </td>
+                </tr>
+
+                <!-- Rij 6: VERKOOPPRIJS (OFFERTE) -->
+                <tr class="bg-[#eef3f9] hover:bg-[#e5edf7] font-bold">
+                  <td class="py-3.5 px-4">
+                    <div class="font-extrabold text-[#0a2246]">Verkoopprijs (Offerte)</div>
+                    <div class="text-[11px] text-slate-500 no-print">Klantprijs &amp; marge t.o.v. werkelijke kosten</div>
+                  </td>
+                  <td class="py-3.5 px-4 text-right" colspan="2">
+                    <div class="inline-flex items-center bg-white border-2 border-[#0a2246] rounded-lg px-2.5 py-1.5">
+                      <span class="text-slate-500 font-mono-num text-xs mr-1 font-bold">&euro;</span>
+                      <input
+                        id="inputSalesPrice"
+                        type="number"
+                        step="any"
+                        min="0"
+                        class="w-28 text-right font-mono-num font-extrabold text-[#0a2246] focus:outline-none"
+                      />
+                    </div>
+                  </td>
+                  <td id="tableSalesMarginEuro" class="py-3.5 px-4 text-right font-mono-num font-bold internal-cost-field">
+                    € 0,00
+                  </td>
+                  <td id="tableSalesMarginPct" class="py-3.5 px-4 text-right font-mono-num font-bold internal-cost-field">
                     0,0%
                   </td>
                 </tr>
@@ -732,7 +1023,7 @@
         <!-- Action Bar: Save Changes & Delete -->
         <div class="pt-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 no-print">
           <div class="text-xs text-slate-500">
-            <em>Wijzigingen worden direct doorgerekend en opgeslagen in localStorage.</em>
+            <em id="saveStatusIndicator">Wijzigingen worden direct doorgerekend en opgeslagen in localStorage.</em>
           </div>
           <div class="flex items-center gap-2 ml-auto">
             <button
@@ -901,6 +1192,126 @@
     </div>
 
   </section>
+  </main>
+
+  <!-- MODAL 1: INSTELLINGEN (GEMINI API KEY & VOORKEUREN) -->
+  <div id="settingsModal" class="hidden fixed inset-0 z-50 bg-[#0a2246]/75 backdrop-blur-xs flex items-center justify-center p-4 no-print">
+    <div class="bg-white rounded-2xl shadow-2xl border border-[#dbe4f0] max-w-lg w-full overflow-hidden">
+      <div class="bg-[#0a2246] text-white px-6 py-4 flex items-center justify-between">
+        <h3 class="text-base font-bold flex items-center gap-2">
+          <span>Instellingen — Gemini AI &amp; Standaard Uurtarief</span>
+        </h3>
+        <button id="closeSettingsModalBtn" type="button" class="text-blue-200 hover:text-white text-2xl leading-none cursor-pointer">&times;</button>
+      </div>
+
+      <div class="p-6 space-y-5">
+        <div>
+          <label for="geminiApiKeyInput" class="block text-xs font-extrabold uppercase text-[#0a2246] mb-1">
+            Google Gemini API-sleutel (optioneel, bewaard in localStorage)
+          </label>
+          <div class="relative">
+            <input id="geminiApiKeyInput" type="password" placeholder="AIzaSy..." class="w-full px-3.5 py-2.5 pr-20 text-sm font-mono-num bg-[#f4f7fb] border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0a2246]" />
+            <button id="toggleApiKeyVisibilityBtn" type="button" class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#0a2246] hover:underline cursor-pointer">Toon</button>
+          </div>
+          <p class="text-xs text-slate-500 mt-1.5 leading-relaxed">
+            Zonder API-sleutel werkt het dashboard direct in <strong>Demo-modus</strong>. Met een geldige Gemini API-sleutel wordt live een POST-call uitgevoerd naar <code>gemini-1.5-flash</code>.
+          </p>
+        </div>
+
+        <div class="border-t border-slate-200 pt-4">
+          <label for="modalGlobalRateInput" class="block text-xs font-extrabold uppercase text-[#0a2246] mb-1">
+            Standaard Werkplaats Uurtarief (€ / uur)
+          </label>
+          <div class="flex flex-wrap items-center gap-3">
+            <div class="inline-flex items-center bg-[#f4f7fb] border border-slate-300 rounded-xl px-3 py-2">
+              <span class="text-slate-500 font-mono-num mr-1.5">€</span>
+              <input id="modalGlobalRateInput" type="number" step="any" min="1" class="w-24 text-sm font-mono-num font-bold bg-transparent text-[#0a2246] focus:outline-none" />
+            </div>
+            <label class="inline-flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+              <input id="applyGlobalRateToAllCheckbox" type="checkbox" class="rounded text-[#0a2246] focus:ring-[#0a2246] w-4 h-4" />
+              <span>Pas dit tarief direct toe op alle projecten</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-[#f4f7fb] px-6 py-4 border-t border-[#dbe4f0] flex items-center justify-between">
+        <button id="clearApiKeyBtn" type="button" class="text-xs font-semibold text-rose-600 hover:underline cursor-pointer">API-sleutel wissen</button>
+        <div class="flex items-center gap-2">
+          <button id="cancelSettingsBtn" type="button" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200 transition cursor-pointer">Sluiten</button>
+          <button id="saveSettingsBtn" type="button" class="px-5 py-2.5 rounded-xl text-xs font-extrabold bg-[#0a2246] hover:bg-[#12356b] text-white transition cursor-pointer">Instellingen Opslaan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 2: DATA IMPORTEREN (CSV / EXCEL PARSER) -->
+  <div id="importModal" class="hidden fixed inset-0 z-50 bg-[#0a2246]/75 backdrop-blur-xs flex items-center justify-center p-4 no-print">
+    <div class="bg-white rounded-2xl shadow-2xl border border-[#dbe4f0] max-w-2xl w-full overflow-hidden">
+      <div class="bg-[#0a2246] text-white px-6 py-4 flex items-center justify-between">
+        <h3 class="text-base font-bold flex items-center gap-2">
+          <span>Excel / CSV Projectdata Importeren (Voorcalculatie &amp; Urenregistratie)</span>
+        </h3>
+        <button id="closeImportModalBtn" type="button" class="text-blue-200 hover:text-white text-2xl leading-none cursor-pointer">&times;</button>
+      </div>
+
+      <div class="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+        <p class="text-xs sm:text-sm text-slate-600 leading-relaxed">
+          Upload een ISP Excel/CSV-bestand (<strong>Basic calculation / Voorcalculatie</strong> of <strong>Urenregistratie</strong>) of plak de inhoud hieronder. Projecten worden automatisch gekoppeld op basis van het projectnummer.
+        </p>
+
+        <div class="border-2 border-dashed border-[#b6c8e2] rounded-xl p-5 text-center bg-[#f4f7fb] hover:bg-[#eef3f9] transition">
+          <input id="csvFileInput" type="file" accept=".csv,.txt,.tsv" class="block w-full text-xs text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#0a2246] file:text-white hover:file:bg-[#12356b] cursor-pointer" />
+        </div>
+
+        <div class="bg-[#f4f7fb] border border-[#dbe4f0] rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="text-xs text-slate-700">
+            <label for="importTargetProjectInput" class="font-extrabold text-[#0a2246] block">
+              Projectnummer koppeling (voor calculatiebestand zonder projectnummer)
+            </label>
+            <span class="text-[11px] text-slate-500">
+              Staat er al een vast <code class="font-mono-num font-bold">Projectnummer</code> in het bestand? Dan wordt dat automatisch gebruikt.
+            </span>
+          </div>
+          <input id="importTargetProjectInput" type="text" placeholder="Bijv. 200360" class="w-full sm:w-36 px-3 py-2 text-xs font-mono-num font-extrabold bg-white border border-slate-300 rounded-lg text-[#0a2246] focus:outline-none focus:ring-2 focus:ring-[#0a2246]" />
+        </div>
+
+        <div id="importPreviewBox" class="hidden text-xs p-3.5 rounded-xl"></div>
+
+        <div>
+          <label for="csvPasteTextarea" class="block text-xs font-extrabold uppercase text-[#0a2246] mb-1">
+            Of plak hier direct de inhoud vanuit Excel / CSV:
+          </label>
+          <textarea id="csvPasteTextarea" rows="4" placeholder="Plak hier de rijen uit een ISP Calculatie-CSV (Basic calculation) of Urenregistratie-CSV..." class="w-full p-3 text-xs font-mono-num bg-[#f4f7fb] border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0a2246]"></textarea>
+        </div>
+
+        <div id="importFeedbackBox" class="hidden text-xs p-3 rounded-xl"></div>
+      </div>
+
+      <div class="bg-[#f4f7fb] px-6 py-4 border-t border-[#dbe4f0] flex flex-wrap items-center justify-between gap-2">
+        <label class="inline-flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+          <input id="replaceOnImportCheckbox" type="checkbox" class="rounded text-[#0a2246] focus:ring-[#0a2246] w-4 h-4" />
+          <span>Vervang bestaande projecten volledig (anders samenvoegen)</span>
+        </label>
+        <div class="flex items-center gap-2">
+          <button id="cancelImportBtn" type="button" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200 transition cursor-pointer">Sluiten</button>
+          <button id="processImportBtn" type="button" class="px-5 py-2.5 rounded-xl text-xs font-extrabold bg-[#0a2246] hover:bg-[#12356b] text-white transition cursor-pointer">Importeer &amp; Verwerk Data</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="bg-white border-t border-[#dbe4f0] py-3.5 px-6 text-xs text-slate-500 mt-auto no-print">
+    <div class="max-w-[1600px] mx-auto flex flex-wrap items-center justify-between gap-2">
+      <div class="text-[#0a2246]">
+        <strong>Industrial Solution Partner (ISP Barendrecht)</strong> — Projectstructuur <code class="font-mono-num">200001 Klant Omschrijving project</code>
+      </div>
+      <div class="font-mono-num text-slate-500">
+        Automatische opslag in browser (localStorage) • 100% Client-Side
+      </div>
+    </div>
+  </footer>
 
   <!-- Scripts: centrale business logic en dashboard controller -->
   <script src="app.js"></script>

@@ -74,7 +74,15 @@
     if (headerDesc) headerDesc.textContent = project.projectnaam;
 
     const headerRate = document.getElementById('headerHourlyRate');
-    if (headerRate) headerRate.textContent = `${formatEuro(project.tarief)}/u`;
+    if (headerRate) headerRate.textContent = `${formatEuro(m.uurtarief)}/u`;
+
+    const headerSales = document.getElementById('headerSalesPrice');
+    if (headerSales) headerSales.textContent = formatEuro(m.verkoopprijs);
+
+    const headerMarginBadge = document.getElementById('headerSalesMarginBadge');
+    if (headerMarginBadge) {
+      headerMarginBadge.textContent = `Marge: ${formatSignedEuro(m.gerealiseerdeMargeEuro)} (${m.gerealiseerdeMargePct.toFixed(1).replace('.', ',')}%)`;
+    }
 
     const printPhase = document.getElementById('printProjectPhase');
     if (printPhase) printPhase.textContent = project.status;
@@ -155,9 +163,11 @@
 
       const plannedEl = document.getElementById('kpiBudgetTotalPlanned');
       const actualEl = document.getElementById('kpiBudgetTotalActual');
+      const salesEl = document.getElementById('kpiBudgetSalesPrice');
       const clientPctEl = document.getElementById('kpiBudgetClientPct');
       if (plannedEl) plannedEl.textContent = formatEuro(m.totaalBegrootBudget);
       if (actualEl) actualEl.textContent = formatEuro(m.totaleWerkelijkeKosten);
+      if (salesEl) salesEl.textContent = formatEuro(m.verkoopprijs);
       if (clientPctEl) clientPctEl.textContent = formatSignedPct(m.afwijkingBudgetPct);
     }
 
@@ -317,16 +327,22 @@
 
     // Formulier velden invullen indien gewenst
     if (populateFormInputs) {
-      document.getElementById('inputProjectId').value = project.projectnummer;
-      document.getElementById('inputClientName').value = project.klant;
-      document.getElementById('inputProjectName').value = project.projectnaam;
-      document.getElementById('inputPlannedHours').value = project.begroteUren;
-      document.getElementById('inputActualHours').value = project.werkelijkeUren;
-      document.getElementById('inputHourlyRate').value = project.tarief;
-      document.getElementById('inputPlannedMaterial').value = project.begrootMateriaal;
-      document.getElementById('inputActualMaterial').value = project.werkelijkMateriaal;
-      document.getElementById('inputSupplierStatus').value = project.bestelstatus;
-      document.getElementById('inputSupplierDelayFlag').checked = Boolean(project.heeftVertraging);
+      const setVal = (id, v) => {
+        const el = document.getElementById(id);
+        if (el) el.value = v;
+      };
+      setVal('inputProjectId', project.projectnummer);
+      setVal('inputClientName', project.klant);
+      setVal('inputProjectName', project.projectnaam);
+      setVal('inputPlannedHours', project.begroteUren);
+      setVal('inputActualHours', project.werkelijkeUren);
+      setVal('inputHourlyRate', m.uurtarief);
+      setVal('inputPlannedMaterial', project.begrootMateriaal);
+      setVal('inputActualMaterial', project.werkelijkMateriaal);
+      setVal('inputSalesPrice', m.verkoopprijs);
+      setVal('inputSupplierStatus', project.bestelstatus);
+      const delayFlag = document.getElementById('inputSupplierDelayFlag');
+      if (delayFlag) delayFlag.checked = Boolean(m.heeftVertraging);
     }
 
     // Bewerkbare vergelijkingstabel bijwerken
@@ -378,6 +394,17 @@
       totPctEl.textContent = formatSignedPct(m.afwijkingBudgetPct);
       totDiffEl.className = `py-4 px-4 text-right font-mono-num text-sm ${m.verschilBudget >= 0 ? 'text-emerald-300' : 'text-rose-300'}`;
       totPctEl.className = `py-4 px-4 text-right font-mono-num text-sm ${m.afwijkingBudgetPct <= 0 ? 'text-emerald-300' : (m.afwijkingBudgetPct < 10 ? 'text-amber-300' : 'text-rose-300')}`;
+    }
+
+    const salesMarginEuroEl = document.getElementById('tableSalesMarginEuro');
+    const salesMarginPctEl = document.getElementById('tableSalesMarginPct');
+    if (salesMarginEuroEl) {
+      salesMarginEuroEl.textContent = formatSignedEuro(m.gerealiseerdeMargeEuro);
+      salesMarginEuroEl.className = `py-3.5 px-4 text-right font-mono-num font-bold ${m.gerealiseerdeMargeEuro >= 0 ? 'text-emerald-700' : 'text-rose-700'}`;
+    }
+    if (salesMarginPctEl) {
+      salesMarginPctEl.textContent = `${m.gerealiseerdeMargePct.toFixed(1).replace('.', ',')}%`;
+      salesMarginPctEl.className = `py-3.5 px-4 text-right font-mono-num font-bold ${m.gerealiseerdeMargePct >= 0 ? 'text-emerald-700' : 'text-rose-700'}`;
     }
   }
 
@@ -838,9 +865,11 @@ Houd de taal vriendelijk, duidelijk en praktisch gericht op de werkplaats en pro
         const current = AppState.getCurrentProject();
         if (!current) return;
         const currentInt = extractProjectNumberInt(current.projectnummer);
-        const prev = AppState.projects.find(p => extractProjectNumberInt(p.projectnummer) === currentInt - 1);
-        if (prev) {
-          openProjectStatusScreen(prev.projectnummer);
+        const sortedLower = AppState.projects
+          .filter(p => extractProjectNumberInt(p.projectnummer) < currentInt)
+          .sort((a, b) => extractProjectNumberInt(b.projectnummer) - extractProjectNumberInt(a.projectnummer));
+        if (sortedLower.length > 0) {
+          openProjectStatusScreen(sortedLower[0].projectnummer);
         } else {
           showToast(`Geen voorgaand project voor ${current.projectnummer}.`);
         }
@@ -853,9 +882,11 @@ Houd de taal vriendelijk, duidelijk en praktisch gericht op de werkplaats en pro
         const current = AppState.getCurrentProject();
         if (!current) return;
         const currentInt = extractProjectNumberInt(current.projectnummer);
-        const next = AppState.projects.find(p => extractProjectNumberInt(p.projectnummer) === currentInt + 1);
-        if (next) {
-          openProjectStatusScreen(next.projectnummer);
+        const sortedHigher = AppState.projects
+          .filter(p => extractProjectNumberInt(p.projectnummer) > currentInt)
+          .sort((a, b) => extractProjectNumberInt(a.projectnummer) - extractProjectNumberInt(b.projectnummer));
+        if (sortedHigher.length > 0) {
+          openProjectStatusScreen(sortedHigher[0].projectnummer);
         } else {
           showToast(`Geen volgend project voor ${current.projectnummer}.`);
         }
@@ -869,8 +900,7 @@ Houd de taal vriendelijk, duidelijk en praktisch gericht op de werkplaats en pro
         const proj = AppState.getCurrentProject();
         if (proj) {
           proj.status = 'Lopend';
-          AppState.saveProjects();
-          renderAll(false);
+          syncCurrentFormToProjectAndRender(false, false);
           showToast(`Projectstatus gewijzigd naar [Lopend]. AI-advies focus aangepast op acute bijsturing.`);
         }
       });
@@ -882,8 +912,7 @@ Houd de taal vriendelijk, duidelijk en praktisch gericht op de werkplaats en pro
         const proj = AppState.getCurrentProject();
         if (proj) {
           proj.status = 'Afgerond';
-          AppState.saveProjects();
-          renderAll(false);
+          syncCurrentFormToProjectAndRender(false, false);
           showToast(`Projectstatus gewijzigd naar [Afgerond]. AI-advies focus aangepast op post-mortem nacalculatie.`);
         }
       });
@@ -894,9 +923,10 @@ Houd de taal vriendelijk, duidelijk en praktisch gericht op de werkplaats en pro
       btn.addEventListener('click', () => {
         const delta = parseInt(btn.getAttribute('data-step-hours'), 10) || 0;
         const input = document.getElementById('inputActualHours');
+        if (!input) return;
         const current = parseFloat(input.value) || 0;
-        input.value = Math.max(0, current + delta);
-        syncCurrentFormToProjectAndRender(false);
+        input.value = Math.max(0, Math.round((current + delta) * 100) / 100);
+        syncCurrentFormToProjectAndRender(false, false);
       });
     });
 
@@ -905,9 +935,10 @@ Houd de taal vriendelijk, duidelijk en praktisch gericht op de werkplaats en pro
       btn.addEventListener('click', () => {
         const delta = parseFloat(btn.getAttribute('data-step-material')) || 0;
         const input = document.getElementById('inputActualMaterial');
+        if (!input) return;
         const current = parseFloat(input.value) || 0;
-        input.value = Math.max(0, current + delta);
-        syncCurrentFormToProjectAndRender(false);
+        input.value = Math.max(0, Math.round((current + delta) * 100) / 100);
+        syncCurrentFormToProjectAndRender(false, false);
       });
     });
 
@@ -916,28 +947,40 @@ Houd de taal vriendelijk, duidelijk en praktisch gericht op de werkplaats en pro
       btn.addEventListener('click', () => {
         const text = btn.getAttribute('data-supplier-preset');
         const hasDelay = btn.getAttribute('data-supplier-delay') === 'true';
-        document.getElementById('inputSupplierStatus').value = text;
-        document.getElementById('inputSupplierDelayFlag').checked = hasDelay;
-        syncCurrentFormToProjectAndRender(false);
+        const statusInput = document.getElementById('inputSupplierStatus');
+        const delayFlag = document.getElementById('inputSupplierDelayFlag');
+        if (statusInput) statusInput.value = text;
+        if (delayFlag) delayFlag.checked = hasDelay;
+        syncCurrentFormToProjectAndRender(false, false);
       });
     });
 
-    // Live form inputs herberekening
-    ['inputPlannedHours', 'inputActualHours', 'inputHourlyRate', 'inputPlannedMaterial', 'inputActualMaterial'].forEach(id => {
+    // Live form inputs herberekening & automatische opslag
+    ['inputClientName', 'inputProjectName', 'inputPlannedHours', 'inputActualHours', 'inputHourlyRate', 'inputPlannedMaterial', 'inputActualMaterial', 'inputSalesPrice'].forEach(id => {
       const el = document.getElementById(id);
       if (el) {
-        el.addEventListener('input', () => syncCurrentFormToProjectAndRender(false));
+        el.addEventListener('input', () => syncCurrentFormToProjectAndRender(false, false));
       }
     });
 
+    const idInputEl = document.getElementById('inputProjectId');
+    if (idInputEl) {
+      idInputEl.addEventListener('change', () => syncCurrentFormToProjectAndRender(true, true));
+    }
+
     const supDelay = document.getElementById('inputSupplierDelayFlag');
     if (supDelay) {
-      supDelay.addEventListener('change', () => syncCurrentFormToProjectAndRender(false));
+      supDelay.addEventListener('change', () => syncCurrentFormToProjectAndRender(false, false));
     }
 
     const supStatus = document.getElementById('inputSupplierStatus');
     if (supStatus) {
-      supStatus.addEventListener('input', () => syncCurrentFormToProjectAndRender(false));
+      supStatus.addEventListener('input', () => {
+        if (supDelay) {
+          supDelay.checked = detectSupplierDelayFromText(supStatus.value);
+        }
+        syncCurrentFormToProjectAndRender(false, false);
+      });
     }
 
     // Formulier Opslaan
@@ -945,8 +988,10 @@ Houd de taal vriendelijk, duidelijk en praktisch gericht op de werkplaats en pro
     if (editForm) {
       editForm.addEventListener('submit', e => {
         e.preventDefault();
-        syncCurrentFormToProjectAndRender(true);
-        showToast('Projectwijzigingen succesvol opgeslagen!');
+        const saved = syncCurrentFormToProjectAndRender(true, true);
+        if (saved) {
+          showToast('Projectwijzigingen succesvol opgeslagen!');
+        }
       });
     }
 
